@@ -1,0 +1,17 @@
+{
+  "title": "Budget Dashboard",
+  "budgets": "Budgets",
+  "transactions": "Transactions",
+  "addTransaction": "Add Transaction",
+  "currencyRates": "Currency Rates",
+  "theme": "Theme",
+  "language": "Language",
+  "amount": "Amount",
+  "category": "Category",
+  "description": "Description",
+  "add": "Add",
+  "from": "From",
+  "to": "To",
+  "convert": "Convert",
+  "search": "Search"
+}

@@ -1,0 +1,17 @@
+{
+  "title": "बजट डैशबोर्ड",
+  "budgets": "बजट",
+  "transactions": "लेनदेन",
+  "addTransaction": "लेन-देन जोड़ें",
+  "currencyRates": "मुद्रा दरें",
+  "theme": "थीम",
+  "language": "भाषा",
+  "amount": "राशि",
+  "category": "वर्ग",
+  "description": "विवरण",
+  "add": "जोड़ें",
+  "from": "से",
+  "to": "को",
+  "convert": "बदलें",
+  "search": "खोजें"
+}
