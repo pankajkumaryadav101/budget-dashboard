@@ -21,6 +21,8 @@ export default function TransactionList({ limit = 10, showFilters = false, refre
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(limit);
   const [viewMode, setViewMode] = useState(showAll ? 'all' : 'paginated'); // 'paginated' or 'all'
+  const [sortField, setSortField] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
 
   useEffect(() => {
     loadTransactions();
@@ -28,7 +30,7 @@ export default function TransactionList({ limit = 10, showFilters = false, refre
 
   useEffect(() => {
     applyFilters();
-  }, [txs, dateFilter, categoryFilter]);
+  }, [txs, dateFilter, categoryFilter, sortField, sortDir]);
 
   const loadTransactions = () => {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
@@ -122,6 +124,19 @@ export default function TransactionList({ limit = 10, showFilters = false, refre
       filtered = filtered.filter(t => t.category === categoryFilter);
     }
 
+    // Sort
+    filtered.sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      if (sortField === 'amount') {
+        return (getDisplayAmount(a) - getDisplayAmount(b)) * dir;
+      }
+      if (sortField === 'category') {
+        return ((a.category || '')).localeCompare(b.category || '') * dir;
+      }
+      // default date
+      return (new Date(a.date || a.createdAt) - new Date(b.date || b.createdAt)) * dir;
+    });
+
     setFilteredTxs(filtered);
   };
 
@@ -159,7 +174,6 @@ export default function TransactionList({ limit = 10, showFilters = false, refre
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
 
-  // Get display transactions based on view mode
   const displayTxs = viewMode === 'all'
     ? filteredTxs
     : filteredTxs.slice(startIndex, endIndex);
@@ -175,6 +189,21 @@ export default function TransactionList({ limit = 10, showFilters = false, refre
       </div>
     );
   }
+
+  const renderSortIcon = (field) => {
+    if (sortField !== field) return '⇅';
+    return sortDir === 'asc' ? '↑' : '↓';
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir(field === 'date' ? 'desc' : 'asc');
+    }
+    setCurrentPage(1);
+  };
 
   return (
     <div>
@@ -250,13 +279,14 @@ export default function TransactionList({ limit = 10, showFilters = false, refre
         style={viewMode === 'all' && filteredTxs.length > 10 ? { maxHeight: '400px', overflowY: 'auto' } : {}}
       >
         <table className="table table-hover mb-0">
-          <thead style={viewMode === 'all' ? { position: 'sticky', top: 0, background: 'var(--bg-primary, white)', zIndex: 1 } : {}}>
+          <thead>
             <tr>
-              <th style={{ width: '80px' }}>Date</th>
-              <th>Category</th>
+              <th role="button" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</th>
+              <th role="button" onClick={() => handleSort('category')}>Category {renderSortIcon('category')}</th>
               <th>Description</th>
-              <th className="text-end">Amount</th>
-              <th style={{ width: '80px' }} className="text-center">Actions</th>
+              <th className="text-end" role="button" onClick={() => handleSort('amount')}>Amount {renderSortIcon('amount')}</th>
+              <th className="text-center">Type</th>
+              <th className="text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -278,6 +308,11 @@ export default function TransactionList({ limit = 10, showFilters = false, refre
                         (was {t.currency} {t.amount})
                       </small>
                     )}
+                  </td>
+                  <td className="text-center">
+                    <span className={`badge rounded-pill ${t.type === 'income' ? 'bg-success' : 'bg-danger'}`}>
+                      {t.type === 'income' ? 'Income' : 'Expense'}
+                    </span>
                   </td>
                   <td className="text-center">
                     <button

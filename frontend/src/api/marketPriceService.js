@@ -58,27 +58,21 @@ export const getGoldPrice = async (currency = 'USD') => {
       return cached.gold[currency];
     }
 
-    // Try to fetch live gold price from free API
-    // Current gold price as of Feb 2026: ~$5,130 per troy ounce = ~$165 per gram
-    let goldPricePerOunceUSD = 5130;
+    // Base gold price (Feb 2026): ~ $163.4 per gram (≈$1,634 per 10g)
+    let goldPricePerGramUSD = 163.4;
 
     try {
-      // Try fetching from a free gold API
+      // Try fetching from a free gold API (NBP gives PLN per gram)
       const response = await fetch('https://api.nbp.pl/api/cenyzlota/?format=json');
       if (response.ok) {
         const data = await response.json();
-        // NBP returns price per gram in PLN, convert to USD
-        const plnToUsd = 0.25; // Approximate PLN to USD rate
-        const priceInPLN = data[0]?.cena || 660; // ~660 PLN per gram
-        goldPricePerOunceUSD = (priceInPLN / plnToUsd) * 31.1035;
+        const plnToUsd = 0.25; // Approx PLN→USD (1 PLN ≈ 0.25 USD)
+        const priceInPLN = data[0]?.cena || 660; // PLN per gram
+        goldPricePerGramUSD = priceInPLN * plnToUsd; // Convert correctly (multiply, not divide)
       }
     } catch (apiError) {
       console.log('Using fallback gold price');
     }
-
-    // Current gold prices (Feb 2026)
-    // Gold spot price: ~$5,130/oz = ~$165/gram
-    const goldPricePerGramUSD = goldPricePerOunceUSD / 31.1035;
 
     // Get exchange rate if not USD
     let rate = 1;
@@ -87,13 +81,14 @@ export const getGoldPrice = async (currency = 'USD') => {
     }
 
     const pricePerGram = goldPricePerGramUSD * rate;
+    const pricePerOunce = pricePerGram * 31.1035;
 
     // Update cache
     const prices = getCache() || {};
     prices.gold = prices.gold || {};
     prices.gold[currency] = {
       pricePerGram: Math.round(pricePerGram * 100) / 100,
-      pricePerOunce: Math.round(goldPricePerOunceUSD * rate * 100) / 100,
+      pricePerOunce: Math.round(pricePerOunce * 100) / 100,
       pricePerKg: Math.round(pricePerGram * 1000 * 100) / 100,
       currency,
       lastUpdated: new Date().toISOString()
@@ -103,18 +98,18 @@ export const getGoldPrice = async (currency = 'USD') => {
     return prices.gold[currency];
   } catch (error) {
     console.error('Error fetching gold price:', error);
-    // Return default values based on currency (Feb 2026 prices)
+    // Return default values based on currency (Feb 2026 prices ~ $163.4/g)
     const defaultPrices = {
-      USD: { perGram: 165, perOunce: 5130 },
-      INR: { perGram: 13750, perOunce: 427650 },
-      EUR: { perGram: 152, perOunce: 4720 },
-      GBP: { perGram: 130, perOunce: 4043 }
+      USD: { perGram: 163.4 },
+      INR: { perGram: 163.4 * 83.5 }, // ≈ ₹13,644 per gram
+      EUR: { perGram: 150 },
+      GBP: { perGram: 128 }
     };
     const prices = defaultPrices[currency] || defaultPrices.USD;
 
     return {
       pricePerGram: prices.perGram,
-      pricePerOunce: prices.perOunce,
+      pricePerOunce: prices.perGram * 31.1035,
       pricePerKg: prices.perGram * 1000,
       currency,
       lastUpdated: new Date().toISOString(),

@@ -30,6 +30,8 @@ export default function AssetList({ onEdit, refreshTrigger }) {
   const [updatingPrices, setUpdatingPrices] = useState(false);
   const [marketPrices, setMarketPrices] = useState({});
   const [totalValue, setTotalValue] = useState(0);
+  const [sortField, setSortField] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
 
   const assetTypes = ['ALL', ...Object.keys(ASSET_CONFIGS)];
 
@@ -245,12 +247,36 @@ export default function AssetList({ onEdit, refreshTrigger }) {
 
   const filteredAssets = filterType === 'ALL' ? assets : assets.filter(a => a.type === filterType);
 
-  const assetsByType = {};
-  assets.forEach(asset => {
-    if (!assetsByType[asset.type]) assetsByType[asset.type] = { count: 0, value: 0 };
-    assetsByType[asset.type].count++;
-    assetsByType[asset.type].value += getCalculatedValue(asset) || asset.currentMarketPrice || 0;
+  const assetsByType = assets.reduce((acc, asset) => {
+    const key = asset.type || 'OTHER';
+    if (!acc[key]) acc[key] = { count: 0, value: 0 };
+    acc[key].count += 1;
+    acc[key].value += getCalculatedValue(asset) || asset.currentMarketPrice || 0;
+    return acc;
+  }, {});
+
+  const sortedAssets = [...filteredAssets].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    if (sortField === 'value') {
+      const av = getCalculatedValue(a) || a.currentMarketPrice || 0;
+      const bv = getCalculatedValue(b) || b.currentMarketPrice || 0;
+      return (av - bv) * dir;
+    }
+    if (sortField === 'type') {
+      return a.type.localeCompare(b.type) * dir;
+    }
+    // default name
+    return (a.name || '').localeCompare(b.name || '') * dir;
   });
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
 
   if (loading) {
     return (
@@ -263,31 +289,36 @@ export default function AssetList({ onEdit, refreshTrigger }) {
     );
   }
 
+  const renderSortIcon = (field) => {
+    if (sortField !== field) return '⇅';
+    return sortDir === 'asc' ? '↑' : '↓';
+  };
+
   return (
     <div>
       {/* Summary Cards */}
       <div className="row g-3 mb-4">
         <div className="col-md-4">
           <div className="p-3 rounded border text-center h-100 d-flex flex-column justify-content-center" style={{ background: 'var(--bg-secondary)', minHeight: '100px' }}>
-            <small className="text-muted d-block">Total Portfolio Value</small>
+            <small className="text-muted d-block">{t('totalPortfolioValue')}</small>
             <h3 className="text-danger mb-0">{formatCurrency(totalValue)}</h3>
             {updatingPrices && <small className="text-muted">Updating...</small>}
           </div>
         </div>
         <div className="col-md-4">
           <div className="p-3 rounded border text-center h-100 d-flex flex-column justify-content-center" style={{ background: 'var(--bg-secondary)', minHeight: '100px' }}>
-            <small className="text-muted d-block">Total Assets</small>
+            <small className="text-muted d-block">{t('totalAssets')}</small>
             <h3 className="mb-0">{assets.length}</h3>
-            <small className="text-muted">{Object.keys(assetsByType).length} categories</small>
+            <small className="text-muted">{t('categories')}</small>
           </div>
         </div>
         <div className="col-md-4">
           <div className="p-3 rounded border text-center h-100 d-flex flex-column justify-content-center" style={{ background: 'var(--bg-secondary)', minHeight: '100px' }}>
-            <small className="text-muted d-block">Gold Rate (24K)</small>
+            <small className="text-muted d-block">{t('goldRate24k')}</small>
             <h3 className="mb-0" style={{ color: '#FFD700' }}>
-              {marketPrices.gold ? formatCurrency(marketPrices.gold.pricePerGram) : '—'}
+              {marketPrices.gold ? formatCurrency(marketPrices.gold.pricePerGram * 10) : '—'}
             </h3>
-            <small className="text-muted">per gram • Spot price</small>
+            <small className="text-muted">{t('per10gSpot')}</small>
           </div>
         </div>
       </div>
@@ -316,14 +347,14 @@ export default function AssetList({ onEdit, refreshTrigger }) {
         <div className="col-md-6">
           <div className="input-group">
             <span className="input-group-text">🔍</span>
-            <input type="text" className="form-control" placeholder="Search by name, location..." value={searchQuery} onChange={handleSearch} />
+            <input type="text" className="form-control" placeholder={t('searchByNameLocation')} value={searchQuery} onChange={handleSearch} />
           </div>
         </div>
         <div className="col-md-3">
           <select className="form-select" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
             {assetTypes.map(type => (
               <option key={type} value={type}>
-                {type === 'ALL' ? '📋 All Types' : `${ASSET_CONFIGS[type]?.icon || ''} ${type.replace('_', ' ')}`}
+                {type === 'ALL' ? `📋 ${t('allTypes')}` : `${ASSET_CONFIGS[type]?.icon || ''} ${type.replace('_', ' ')}`}
               </option>
             ))}
           </select>
@@ -340,16 +371,16 @@ export default function AssetList({ onEdit, refreshTrigger }) {
       {filteredAssets.length === 0 ? (
         <div className="text-center py-4">
           <span style={{ fontSize: '64px' }}>💎</span>
-          <h4 className="mt-3">{searchQuery ? 'No Assets Found' : 'Start Tracking Your Valuables'}</h4>
+          <h4 className="mt-3">{searchQuery ? t('noAssetsFound') : t('startTracking')}</h4>
           <p className="text-muted mb-4">
-            {searchQuery ? 'Try a different search term' : 'Keep track of where your valuable items are stored and their current value'}
+            {searchQuery ? t('tryDifferentSearch') : t('keepTrack')}
           </p>
 
           {/* Sample Assets Guide */}
           {!searchQuery && (
             <div className="card text-start mx-auto" style={{ maxWidth: '600px' }}>
               <div className="card-header bg-danger text-white">
-                <strong>📝 Examples: What You Can Track</strong>
+                <strong>{t('sampleHeader')}</strong>
               </div>
               <div className="card-body">
                 <div className="row g-3">
@@ -358,10 +389,10 @@ export default function AssetList({ onEdit, refreshTrigger }) {
                     <div className="p-2 rounded border d-flex align-items-start gap-2">
                       <span style={{ fontSize: '24px' }}>🥇</span>
                       <div>
-                        <strong className="d-block">Gold Jewelry</strong>
-                        <small className="text-muted d-block">• 50g Gold Chain</small>
-                        <small className="text-muted d-block">• Location: Bank Locker</small>
-                        <small className="text-muted d-block">• Auto-calculates value based on gold rate</small>
+                        <strong className="d-block">{t('sampleGoldTitle')}</strong>
+                        <small className="text-muted d-block">{t('sampleGoldLine1')}</small>
+                        <small className="text-muted d-block">{t('sampleGoldLine2')}</small>
+                        <small className="text-muted d-block">{t('sampleGoldLine3')}</small>
                       </div>
                     </div>
                   </div>
@@ -371,10 +402,10 @@ export default function AssetList({ onEdit, refreshTrigger }) {
                     <div className="p-2 rounded border d-flex align-items-start gap-2">
                       <span style={{ fontSize: '24px' }}>🏠</span>
                       <div>
-                        <strong className="d-block">House / Apartment</strong>
-                        <small className="text-muted d-block">• 2BHK in Downtown</small>
-                        <small className="text-muted d-block">• Purchase: $250,000</small>
-                        <small className="text-muted d-block">• Tracks appreciation over time</small>
+                        <strong className="d-block">{t('sampleReTitle')}</strong>
+                        <small className="text-muted d-block">{t('sampleReLine1')}</small>
+                        <small className="text-muted d-block">{t('sampleReLine2')}</small>
+                        <small className="text-muted d-block">{t('sampleReLine3')}</small>
                       </div>
                     </div>
                   </div>
@@ -384,10 +415,10 @@ export default function AssetList({ onEdit, refreshTrigger }) {
                     <div className="p-2 rounded border d-flex align-items-start gap-2">
                       <span style={{ fontSize: '24px' }}>🚗</span>
                       <div>
-                        <strong className="d-block">Vehicle</strong>
-                        <small className="text-muted d-block">• 2022 Honda Accord</small>
-                        <small className="text-muted d-block">• Mileage: 25,000 miles</small>
-                        <small className="text-muted d-block">• Calculates depreciation</small>
+                        <strong className="d-block">{t('sampleCarTitle')}</strong>
+                        <small className="text-muted d-block">{t('sampleCarLine1')}</small>
+                        <small className="text-muted d-block">{t('sampleCarLine2')}</small>
+                        <small className="text-muted d-block">{t('sampleCarLine3')}</small>
                       </div>
                     </div>
                   </div>
@@ -397,10 +428,10 @@ export default function AssetList({ onEdit, refreshTrigger }) {
                     <div className="p-2 rounded border d-flex align-items-start gap-2">
                       <span style={{ fontSize: '24px' }}>🏞️</span>
                       <div>
-                        <strong className="d-block">Land / Plot</strong>
-                        <small className="text-muted d-block">• 1 acre farm land</small>
-                        <small className="text-muted d-block">• Location: Texas</small>
-                        <small className="text-muted d-block">• Document: Drawer #3</small>
+                        <strong className="d-block">{t('sampleLandTitle')}</strong>
+                        <small className="text-muted d-block">{t('sampleLandLine1')}</small>
+                        <small className="text-muted d-block">{t('sampleLandLine2')}</small>
+                        <small className="text-muted d-block">{t('sampleLandLine3')}</small>
                       </div>
                     </div>
                   </div>
@@ -410,10 +441,10 @@ export default function AssetList({ onEdit, refreshTrigger }) {
                     <div className="p-2 rounded border d-flex align-items-start gap-2">
                       <span style={{ fontSize: '24px' }}>📄</span>
                       <div>
-                        <strong className="d-block">Important Documents</strong>
-                        <small className="text-muted d-block">• Passport, Birth Certificate</small>
-                        <small className="text-muted d-block">• Location: Safe Box</small>
-                        <small className="text-muted d-block">• Never forget where they are!</small>
+                        <strong className="d-block">{t('sampleDocsTitle')}</strong>
+                        <small className="text-muted d-block">{t('sampleDocsLine1')}</small>
+                        <small className="text-muted d-block">{t('sampleDocsLine2')}</small>
+                        <small className="text-muted d-block">{t('sampleDocsLine3')}</small>
                       </div>
                     </div>
                   </div>
@@ -423,10 +454,10 @@ export default function AssetList({ onEdit, refreshTrigger }) {
                     <div className="p-2 rounded border d-flex align-items-start gap-2">
                       <span style={{ fontSize: '24px' }}>💎</span>
                       <div>
-                        <strong className="d-block">Jewelry & Valuables</strong>
-                        <small className="text-muted d-block">• Diamond Ring, Watches</small>
-                        <small className="text-muted d-block">• Location: Bedroom Safe</small>
-                        <small className="text-muted d-block">• Track insurance value</small>
+                        <strong className="d-block">{t('sampleJewelryTitle')}</strong>
+                        <small className="text-muted d-block">{t('sampleJewelryLine1')}</small>
+                        <small className="text-muted d-block">{t('sampleJewelryLine2')}</small>
+                        <small className="text-muted d-block">{t('sampleJewelryLine3')}</small>
                       </div>
                     </div>
                   </div>
@@ -435,12 +466,12 @@ export default function AssetList({ onEdit, refreshTrigger }) {
                 <hr className="my-3" />
 
                 <div className="bg-light p-3 rounded">
-                  <h6 className="mb-2">💡 Pro Tips</h6>
+                  <h6 className="mb-2">{t('proTipsTitle')}</h6>
                   <ul className="mb-0 small text-muted">
-                    <li><strong>Location matters:</strong> Add specific locations like "Master Bedroom → Closet → Top Shelf"</li>
-                    <li><strong>Verify regularly:</strong> The app reminds you to check if items are still there</li>
-                    <li><strong>Gold auto-updates:</strong> Enter weight in grams, price updates daily</li>
-                    <li><strong>Cars depreciate:</strong> Enter purchase year & mileage for accurate value</li>
+                    <li><strong>{t('proTipLocationLabel')}</strong> {t('proTipLocation')}</li>
+                    <li><strong>{t('proTipVerifyLabel')}</strong> {t('proTipVerify')}</li>
+                    <li><strong>{t('proTipGoldLabel')}</strong> {t('proTipGold')}</li>
+                    <li><strong>{t('proTipCarsLabel')}</strong> {t('proTipCars')}</li>
                   </ul>
                 </div>
               </div>
@@ -523,10 +554,17 @@ export default function AssetList({ onEdit, refreshTrigger }) {
         <div className="table-responsive">
           <table className="table table-hover">
             <thead>
-              <tr><th>Type</th><th>Name</th><th>Location</th><th className="text-end">Value</th><th>Status</th><th>Actions</th></tr>
+              <tr>
+                <th role="button" onClick={() => handleSort('type')}>{t('typeHeader')} {renderSortIcon('type')}</th>
+                <th role="button" onClick={() => handleSort('name')}>{t('nameHeader')} {renderSortIcon('name')}</th>
+                <th>{t('locationHeader')}</th>
+                <th className="text-end" role="button" onClick={() => handleSort('value')}>{t('valueHeader')} {renderSortIcon('value')}</th>
+                <th>{t('statusHeader')}</th>
+                <th>{t('actionsHeader')}</th>
+              </tr>
             </thead>
             <tbody>
-              {filteredAssets.map(asset => {
+              {sortedAssets.map(asset => {
                 const config = ASSET_CONFIGS[asset.type] || ASSET_CONFIGS.OTHER;
                 const displayValue = getCalculatedValue(asset) || asset.currentMarketPrice;
                 return (

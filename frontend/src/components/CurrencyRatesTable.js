@@ -12,6 +12,8 @@ export default function CurrencyRatesTable({ compact = false }) {
   const [to, setTo] = useState("INR");
   const [amount, setAmount] = useState(1);
   const [converted, setConverted] = useState(null);
+  const [sortField, setSortField] = useState('code');
+  const [sortDir, setSortDir] = useState('asc');
 
   useEffect(() => {
     async function load() {
@@ -34,19 +36,22 @@ export default function CurrencyRatesTable({ compact = false }) {
   }, [base]);
 
   const rows = useMemo(() => {
-    // For compact mode, show common currencies first
     const priorityCurrencies = ['INR', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD'];
     const entries = Object.entries(rates);
 
-    if (compact) {
-      const priority = entries.filter(([code]) => priorityCurrencies.includes(code));
-      return priority.slice(0, 5);
-    }
+    const filtered = compact
+      ? entries.filter(([code]) => priorityCurrencies.includes(code)).slice(0, 5)
+      : entries.filter(([code]) => code.toLowerCase().includes(filter.toLowerCase())).slice(0, 10);
 
-    return entries
-      .filter(([code]) => code.toLowerCase().includes(filter.toLowerCase()))
-      .slice(0, 10);
-  }, [rates, filter, compact]);
+    const sorted = filtered.sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      if (sortField === 'rate') return (a[1] - b[1]) * dir;
+      if (sortField === 'name') return (symbols[a[0]] || '').localeCompare(symbols[b[0]] || '') * dir;
+      return a[0].localeCompare(b[0]) * dir; // code
+    });
+
+    return sorted;
+  }, [rates, filter, compact, sortField, sortDir, symbols]);
 
   const doConvert = async () => {
     try {
@@ -55,6 +60,20 @@ export default function CurrencyRatesTable({ compact = false }) {
     } catch (e) {
       setConverted("error");
     }
+  };
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const renderSortIcon = (field) => {
+    if (sortField !== field) return null;
+    return sortDir === 'asc' ? '▲' : '▼';
   };
 
   // Compact view for overview
@@ -110,9 +129,9 @@ export default function CurrencyRatesTable({ compact = false }) {
         <table className="table table-sm table-hover mb-0">
           <thead className="sticky-top">
             <tr>
-              <th>Code</th>
-              <th>Name</th>
-              <th className="text-end">Rate</th>
+              <th role="button" onClick={() => handleSort('code')}>Code {renderSortIcon('code')}</th>
+              <th role="button" onClick={() => handleSort('name')}>Name {renderSortIcon('name')}</th>
+              <th className="text-end" role="button" onClick={() => handleSort('rate')}>Rate {renderSortIcon('rate')}</th>
             </tr>
           </thead>
           <tbody>

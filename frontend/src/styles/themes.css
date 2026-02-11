@@ -173,16 +173,19 @@ body {
 /* Tables */
 .table {
   color: var(--text-primary) !important;
+  background-color: var(--bg-card) !important;
 }
 
 .table th {
-  color: var(--text-secondary) !important;
+  color: var(--text-primary) !important;
   border-color: var(--border-color) !important;
   background-color: var(--bg-secondary) !important;
 }
 
 .table td {
+  color: var(--text-primary) !important;
   border-color: var(--border-color) !important;
+  background-color: var(--bg-card) !important;
 }
 
 .table-hover tbody tr:hover {
@@ -366,4 +369,29 @@ pre {
 
 code {
   color: var(--accent-color) !important;
+}
+
+/* Pagination */
+.pagination .page-link {
+  color: var(--text-primary) !important;
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+.pagination .page-link:hover {
+  color: var(--text-primary) !important;
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--accent-color) !important;
+}
+
+.pagination .page-item.active .page-link {
+  color: #fff !important;
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+}
+
+.pagination .page-item.disabled .page-link {
+  color: var(--text-muted) !important;
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
 }
