@@ -2,7 +2,7 @@
 // Uses free APIs where available
 
 const CACHE_KEY = 'market_prices_cache';
-const CACHE_DURATION = 60 * 60 * 1000; // 1 hour cache
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes cache
 
 // Gold price API (using free API)
 const GOLD_API_URL = 'https://api.metalpriceapi.com/v1/latest';
@@ -10,6 +10,17 @@ const GOLD_BACKUP_URL = 'https://www.goldapi.io/api/XAU/USD';
 
 // Exchange rate for currency conversion
 const EXCHANGE_API_URL = 'https://api.exchangerate-api.com/v4/latest/USD';
+
+// Clear cache (useful when prices need to be refreshed)
+export const clearMarketPriceCache = () => {
+  try {
+    localStorage.removeItem(CACHE_KEY);
+    return true;
+  } catch (e) {
+    console.error('Failed to clear cache:', e);
+    return false;
+  }
+};
 
 // Cache helper
 const getCache = () => {
@@ -47,11 +58,27 @@ export const getGoldPrice = async (currency = 'USD') => {
       return cached.gold[currency];
     }
 
-    // Try to fetch from API
-    // Note: Most gold APIs require API keys, so we'll use a fallback approach
-    // Using approximate market rates as fallback
-    const goldPricePerOunceUSD = 2650; // Approximate gold price per troy ounce in USD (Feb 2026)
-    const goldPricePerGramUSD = goldPricePerOunceUSD / 31.1035; // Convert to grams
+    // Try to fetch live gold price from free API
+    // Current gold price as of Feb 2026: ~$5,130 per troy ounce = ~$165 per gram
+    let goldPricePerOunceUSD = 5130;
+
+    try {
+      // Try fetching from a free gold API
+      const response = await fetch('https://api.nbp.pl/api/cenyzlota/?format=json');
+      if (response.ok) {
+        const data = await response.json();
+        // NBP returns price per gram in PLN, convert to USD
+        const plnToUsd = 0.25; // Approximate PLN to USD rate
+        const priceInPLN = data[0]?.cena || 660; // ~660 PLN per gram
+        goldPricePerOunceUSD = (priceInPLN / plnToUsd) * 31.1035;
+      }
+    } catch (apiError) {
+      console.log('Using fallback gold price');
+    }
+
+    // Current gold prices (Feb 2026)
+    // Gold spot price: ~$5,130/oz = ~$165/gram
+    const goldPricePerGramUSD = goldPricePerOunceUSD / 31.1035;
 
     // Get exchange rate if not USD
     let rate = 1;
@@ -76,11 +103,19 @@ export const getGoldPrice = async (currency = 'USD') => {
     return prices.gold[currency];
   } catch (error) {
     console.error('Error fetching gold price:', error);
-    // Return default values
+    // Return default values based on currency (Feb 2026 prices)
+    const defaultPrices = {
+      USD: { perGram: 165, perOunce: 5130 },
+      INR: { perGram: 13750, perOunce: 427650 },
+      EUR: { perGram: 152, perOunce: 4720 },
+      GBP: { perGram: 130, perOunce: 4043 }
+    };
+    const prices = defaultPrices[currency] || defaultPrices.USD;
+
     return {
-      pricePerGram: currency === 'USD' ? 85 : currency === 'INR' ? 7100 : 85,
-      pricePerOunce: currency === 'USD' ? 2650 : currency === 'INR' ? 220000 : 2650,
-      pricePerKg: currency === 'USD' ? 85000 : currency === 'INR' ? 7100000 : 85000,
+      pricePerGram: prices.perGram,
+      pricePerOunce: prices.perOunce,
+      pricePerKg: prices.perGram * 1000,
       currency,
       lastUpdated: new Date().toISOString(),
       isEstimate: true
@@ -183,53 +218,129 @@ export const getLandPrice = async (location, currency = 'USD') => {
   };
 };
 
-// Calculate car depreciation based on age and mileage
-export const getCarValue = (originalPrice, purchaseYear, mileage = 0, condition = 'good') => {
+// Calculate car depreciation based on age, mileage, type, and condition
+export const getCarValue = (originalPrice, purchaseYear, mileage = 0, condition = 'good', carType = 'sedan') => {
   const currentYear = new Date().getFullYear();
   const age = currentYear - purchaseYear;
 
-  // Annual depreciation rates
+  // Base annual depreciation rates (percentage of original value retained)
   const depreciationRates = {
     0: 1.0,      // New
-    1: 0.75,     // 25% first year
-    2: 0.65,     //
-    3: 0.55,
-    4: 0.48,
-    5: 0.42,
+    1: 0.75,     // 25% first year depreciation
+    2: 0.65,     // 35% total
+    3: 0.55,     // 45% total
+    4: 0.48,     // 52% total
+    5: 0.42,     // 58% total
     6: 0.37,
     7: 0.33,
     8: 0.29,
     9: 0.26,
     10: 0.23,
+    11: 0.21,
+    12: 0.19,
+    13: 0.17,
+    14: 0.15,
+    15: 0.13,
   };
 
-  // Get base depreciation
-  let depreciationFactor = depreciationRates[Math.min(age, 10)] || 0.2;
+  // Car type depreciation modifiers (some cars hold value better)
+  const carTypeModifiers = {
+    // Luxury cars depreciate faster
+    'luxury': 0.85,
+    'bmw': 0.85,
+    'mercedes': 0.85,
+    'audi': 0.87,
+    'lexus': 0.95,
 
-  // Adjust for mileage (average 12,000 miles/year)
-  const expectedMileage = age * 12000;
-  if (mileage > expectedMileage * 1.3) {
-    depreciationFactor *= 0.9; // High mileage
-  } else if (mileage < expectedMileage * 0.7) {
-    depreciationFactor *= 1.05; // Low mileage bonus
+    // Trucks and SUVs hold value better
+    'truck': 1.1,
+    'pickup': 1.1,
+    'suv': 1.05,
+    'jeep': 1.08,
+
+    // Economy cars - average depreciation
+    'sedan': 1.0,
+    'compact': 0.95,
+    'hatchback': 0.95,
+
+    // Electric vehicles
+    'electric': 0.9,
+    'tesla': 0.92,
+    'ev': 0.9,
+
+    // Sports cars
+    'sports': 0.88,
+    'coupe': 0.92,
+
+    // Japanese brands hold value well
+    'toyota': 1.08,
+    'honda': 1.06,
+    'subaru': 1.05,
+
+    // Default
+    'default': 1.0
+  };
+
+  // Get base depreciation factor for age
+  let depreciationFactor = depreciationRates[Math.min(age, 15)] || 0.1;
+
+  // Adjust for car type/make
+  const carTypeLower = (carType || 'sedan').toLowerCase();
+  let typeModifier = carTypeModifiers.default;
+  for (const [type, modifier] of Object.entries(carTypeModifiers)) {
+    if (carTypeLower.includes(type)) {
+      typeModifier = modifier;
+      break;
+    }
+  }
+  depreciationFactor *= typeModifier;
+
+  // Adjust for mileage (average 12,000-15,000 miles/year)
+  const avgMilesPerYear = 12000;
+  const expectedMileage = age * avgMilesPerYear;
+  const mileageNum = parseInt(mileage) || 0;
+
+  if (mileageNum > expectedMileage * 1.5) {
+    // Very high mileage - additional 15% penalty
+    depreciationFactor *= 0.85;
+  } else if (mileageNum > expectedMileage * 1.2) {
+    // High mileage - 8% penalty
+    depreciationFactor *= 0.92;
+  } else if (mileageNum < expectedMileage * 0.5) {
+    // Very low mileage - 8% bonus
+    depreciationFactor *= 1.08;
+  } else if (mileageNum < expectedMileage * 0.8) {
+    // Low mileage - 5% bonus
+    depreciationFactor *= 1.05;
   }
 
   // Adjust for condition
   const conditionMultipliers = {
-    'excellent': 1.1,
+    'excellent': 1.12,
+    'very good': 1.05,
     'good': 1.0,
     'fair': 0.85,
-    'poor': 0.7
+    'poor': 0.65
   };
-  depreciationFactor *= conditionMultipliers[condition] || 1.0;
+  depreciationFactor *= conditionMultipliers[condition?.toLowerCase()] || 1.0;
+
+  // Ensure factor doesn't exceed 1.0 or go below 0.05
+  depreciationFactor = Math.min(1.0, Math.max(0.05, depreciationFactor));
 
   const currentValue = originalPrice * depreciationFactor;
+  const depreciation = originalPrice - currentValue;
 
   return {
     currentValue: Math.round(currentValue),
-    depreciation: Math.round(originalPrice - currentValue),
-    depreciationPercent: Math.round((1 - depreciationFactor) * 100),
+    originalPrice: Math.round(originalPrice),
+    depreciation: Math.round(depreciation),
+    depreciationPercent: Math.round((depreciation / originalPrice) * 100),
     age,
+    mileage: mileageNum,
+    expectedMileage,
+    condition: condition || 'good',
+    carType: carType || 'sedan',
+    mileageStatus: mileageNum > expectedMileage * 1.2 ? 'high' : mileageNum < expectedMileage * 0.8 ? 'low' : 'average',
     lastUpdated: new Date().toISOString()
   };
 };

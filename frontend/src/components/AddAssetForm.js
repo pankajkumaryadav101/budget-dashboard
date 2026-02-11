@@ -147,19 +147,57 @@ export default function AddAssetForm({ editAsset, onSave, onCancel }) {
   const typeConfig = ASSET_TYPE_CONFIG[formData.type] || ASSET_TYPE_CONFIG.OTHER;
   const showField = (field) => typeConfig.fields?.includes(field);
 
+  // Get placeholder examples based on type
+  const getPlaceholder = (field) => {
+    const placeholders = {
+      GOLD: { name: 'e.g., Gold Chain 22K', location: 'e.g., Bank Locker #42, SBI Main Branch', price: 'Auto-calculated from weight' },
+      LAND: { name: 'e.g., Farm Land Plot #5', location: 'e.g., 123 Rural Road, Austin, TX', price: 'e.g., 150000' },
+      REAL_ESTATE: { name: 'e.g., 2BHK Apartment Downtown', location: 'e.g., 456 Main St, Apt 12B, NYC', price: 'e.g., 350000' },
+      CAR: { name: 'e.g., 2022 Honda Accord', location: 'e.g., Home Garage', price: 'e.g., 28000' },
+      JEWELRY: { name: 'e.g., Diamond Engagement Ring', location: 'e.g., Bedroom Safe', price: 'e.g., 5000' },
+      ELECTRONICS: { name: 'e.g., MacBook Pro 16"', location: 'e.g., Home Office Desk', price: 'e.g., 2500' },
+      DOCUMENTS: { name: 'e.g., Passport & Birth Certificate', location: 'e.g., Filing Cabinet Drawer 3', price: '' },
+      CASH: { name: 'e.g., Emergency Cash', location: 'e.g., Hidden in Book Safe', price: 'e.g., 500' },
+      STOCKS: { name: 'e.g., Apple Inc (AAPL)', location: 'e.g., Fidelity Brokerage Account', price: 'e.g., 15000' },
+      CRYPTO: { name: 'e.g., Bitcoin', location: 'e.g., Coinbase Wallet', price: 'e.g., 25000' },
+      OTHER: { name: 'e.g., Antique Collection', location: 'e.g., Living Room Display', price: 'e.g., 1000' }
+    };
+    return placeholders[formData.type]?.[field] || '';
+  };
+
   return (
     <form onSubmit={handleSubmit}>
-      <div className="d-flex align-items-center gap-2 mb-4">
+      <div className="d-flex align-items-center gap-2 mb-3">
         <span style={{ fontSize: '32px' }}>{typeConfig.icon}</span>
-        <h5 className="mb-0">{editAsset ? 'Edit Asset' : 'Add New Asset'}</h5>
+        <div>
+          <h5 className="mb-0">{editAsset ? 'Edit Asset' : 'Add New Asset'}</h5>
+          <small className="text-muted">Track where your valuables are stored</small>
+        </div>
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
 
+      {/* Quick Type Selection */}
+      <div className="mb-3">
+        <label className="form-label">What are you adding? *</label>
+        <div className="d-flex flex-wrap gap-2">
+          {assetTypes.map(type => (
+            <button
+              key={type}
+              type="button"
+              className={`btn btn-sm ${formData.type === type ? 'btn-danger' : 'btn-outline-secondary'}`}
+              onClick={() => handleChange({ target: { name: 'type', value: type } })}
+            >
+              {ASSET_TYPE_CONFIG[type].icon} {type.replace('_', ' ')}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Basic Info */}
       <div className="row g-3 mb-3">
-        <div className="col-md-8">
-          <label className="form-label">Asset Name *</label>
+        <div className="col-12">
+          <label className="form-label">Name / Description *</label>
           <input
             type="text"
             className="form-control"
@@ -167,24 +205,14 @@ export default function AddAssetForm({ editAsset, onSave, onCancel }) {
             value={formData.name}
             onChange={handleChange}
             required
-            placeholder="e.g., Gold Chain, Land in Texas, BMW X5"
+            placeholder={getPlaceholder('name')}
           />
-        </div>
-        <div className="col-md-4">
-          <label className="form-label">Type *</label>
-          <select className="form-select" name="type" value={formData.type} onChange={handleChange} required>
-            {assetTypes.map(type => (
-              <option key={type} value={type}>
-                {ASSET_TYPE_CONFIG[type].icon} {type.replace('_', ' ')}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 
       {/* Location */}
       <div className="mb-3">
-        <label className="form-label">📍 Storage Location *</label>
+        <label className="form-label">📍 Where is it stored? *</label>
         <input
           type="text"
           className="form-control"
@@ -192,9 +220,9 @@ export default function AddAssetForm({ editAsset, onSave, onCancel }) {
           value={formData.storageLocation}
           onChange={handleChange}
           required
-          placeholder="e.g., Bank locker #42, Garage, California"
+          placeholder={getPlaceholder('location')}
         />
-        <small className="text-muted">Where is this item stored? This helps track your valuables.</small>
+        <small className="text-muted">Be specific! e.g., "Master Bedroom → Closet → Top Shelf → Blue Box"</small>
       </div>
 
       {/* Type-specific fields */}
@@ -231,8 +259,8 @@ export default function AddAssetForm({ editAsset, onSave, onCancel }) {
           </div>
         )}
 
-        {/* Purchase Year */}
-        {showField('purchaseYear') && (
+        {/* Purchase Year - for non-car assets that need it */}
+        {showField('purchaseYear') && formData.type !== 'CAR' && (
           <div className="col-md-4">
             <label className="form-label">Purchase Year</label>
             <input
@@ -251,7 +279,20 @@ export default function AddAssetForm({ editAsset, onSave, onCancel }) {
         {formData.type === 'CAR' && (
           <>
             <div className="col-md-4">
-              <label className="form-label">Mileage</label>
+              <label className="form-label">Purchase Year</label>
+              <input
+                type="number"
+                className="form-control"
+                name="purchaseYear"
+                value={formData.purchaseYear}
+                onChange={handleChange}
+                min="1990"
+                max={new Date().getFullYear()}
+                placeholder={new Date().getFullYear().toString()}
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label">Current Mileage</label>
               <div className="input-group">
                 <input
                   type="number"
@@ -259,7 +300,7 @@ export default function AddAssetForm({ editAsset, onSave, onCancel }) {
                   name="mileage"
                   value={formData.mileage}
                   onChange={handleChange}
-                  placeholder="0"
+                  placeholder="e.g., 45000"
                 />
                 <span className="input-group-text">miles</span>
               </div>
@@ -267,11 +308,21 @@ export default function AddAssetForm({ editAsset, onSave, onCancel }) {
             <div className="col-md-4">
               <label className="form-label">Condition</label>
               <select className="form-select" name="condition" value={formData.condition} onChange={handleChange}>
-                <option value="excellent">Excellent</option>
-                <option value="good">Good</option>
-                <option value="fair">Fair</option>
-                <option value="poor">Poor</option>
+                <option value="excellent">Excellent - Like new</option>
+                <option value="very good">Very Good - Minor wear</option>
+                <option value="good">Good - Normal wear</option>
+                <option value="fair">Fair - Visible wear</option>
+                <option value="poor">Poor - Needs repairs</option>
               </select>
+            </div>
+            <div className="col-12">
+              <div className="alert alert-info py-2 small mb-0">
+                <strong>💡 How car value is calculated:</strong><br/>
+                • <strong>Age:</strong> ~25% depreciation in year 1, then ~10-15% per year<br/>
+                • <strong>Mileage:</strong> High mileage (&gt;15k/year) reduces value; low mileage adds value<br/>
+                • <strong>Type:</strong> Trucks/SUVs hold value better; luxury cars depreciate faster<br/>
+                • <strong>Condition:</strong> Excellent adds 12%; Poor reduces by 35%
+              </div>
             </div>
           </>
         )}

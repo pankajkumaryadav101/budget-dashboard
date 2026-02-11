@@ -11,6 +11,7 @@ const CATEGORY_OPTIONS = [
 ];
 
 const STORAGE_KEY = 'monthly_expenses_v1';
+const TRANSACTIONS_KEY = 'transactions_v1';
 
 const AddMonthlyExpense = ({ onAdd }) => {
   const { settings } = useSettings();
@@ -39,7 +40,14 @@ const AddMonthlyExpense = ({ onAdd }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!amount || !category) {
+      alert('Please enter amount and category');
+      return;
+    }
+
     setLoading(true);
+
     const expenseData = {
       id: Date.now().toString(),
       amount: parseFloat(amount),
@@ -47,30 +55,42 @@ const AddMonthlyExpense = ({ onAdd }) => {
       date,
       description,
       currency: settings.currency,
+      type: 'EXPENSE',
       createdAt: new Date().toISOString()
     };
 
+    // Save to both localStorage keys (for compatibility)
     try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      stored.unshift(expenseData);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      // Save to monthly_expenses_v1
+      const monthlyStored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      monthlyStored.unshift(expenseData);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(monthlyStored));
+
+      // Also save to transactions_v1 (main transaction list)
+      const txStored = JSON.parse(localStorage.getItem(TRANSACTIONS_KEY) || "[]");
+      txStored.unshift(expenseData);
+      localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(txStored));
+
+      console.log('Expense saved:', expenseData);
     } catch (err) {
       console.warn('Failed to write expense to localStorage', err);
     }
 
+    // Try API call (optional - will work if backend is running)
     try {
       await addExpense(expenseData);
-      setAmount("");
-      setCategory("");
-      setDescription("");
-      setDate(new Date().toISOString().split('T')[0]);
-      if (onAdd) onAdd();
     } catch (error) {
-      console.error("Failed to add expense:", error);
-      if (onAdd) onAdd();
-    } finally {
-      setLoading(false);
+      // Silently ignore API errors - data is already saved locally
+      console.log('Backend not available, using local storage only');
     }
+
+    // Reset form and notify parent
+    setAmount("");
+    setCategory("");
+    setDescription("");
+    setDate(new Date().toISOString().split('T')[0]);
+    setLoading(false);
+    if (onAdd) onAdd();
   };
 
   return (

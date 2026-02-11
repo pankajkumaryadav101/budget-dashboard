@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../contexts/SettingsContext';
 import { getAllAssets, searchAssets, verifyAssetLocation, deleteAsset } from '../api/api';
-import { getGoldPrice, getCarValue, getRealEstateValue, calculateGoldValue, getLandPrice } from '../api/marketPriceService';
+import { getGoldPrice, getCarValue, getRealEstateValue, calculateGoldValue, getLandPrice, clearMarketPriceCache } from '../api/marketPriceService';
 
 // Asset type configurations
 const ASSET_CONFIGS = {
@@ -54,21 +54,41 @@ export default function AssetList({ onEdit, refreshTrigger }) {
   const loadAssets = async () => {
     setLoading(true);
     try {
-      const data = await getAllAssets();
-      setAssets(data);
-      await fetchMarketPrices(data);
+      // Load from localStorage (primary source for now)
+      const localAssets = JSON.parse(localStorage.getItem('assets_v1') || '[]');
+
+      // Deduplicate by ID
+      const uniqueAssets = deduplicateAssets(localAssets);
+
+      // If we removed duplicates, save the cleaned list back
+      if (uniqueAssets.length !== localAssets.length) {
+        localStorage.setItem('assets_v1', JSON.stringify(uniqueAssets));
+      }
+
+      setAssets(uniqueAssets);
+      await fetchMarketPrices(uniqueAssets);
     } catch (err) {
       console.error('Failed to load assets:', err);
-      try {
-        const localAssets = JSON.parse(localStorage.getItem('assets_v1') || '[]');
-        setAssets(localAssets);
-        await fetchMarketPrices(localAssets);
-      } catch (e) {
-        setAssets([]);
-      }
+      setAssets([]);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper to remove duplicate assets by ID
+  const deduplicateAssets = (assetList) => {
+    const seen = new Map();
+    for (const asset of assetList) {
+      const id = asset.id?.toString();
+      if (id && !seen.has(id)) {
+        seen.set(id, asset);
+      } else if (!id) {
+        // Asset without ID - generate one
+        asset.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        seen.set(asset.id, asset);
+      }
+    }
+    return Array.from(seen.values());
   };
 
   const fetchMarketPrices = async (assetList) => {
@@ -84,7 +104,15 @@ export default function AssetList({ onEdit, refreshTrigger }) {
           const goldValue = await calculateGoldValue(asset.quantity, settings.currency, asset.purity || 24);
           prices[`asset_${asset.id}`] = goldValue;
         } else if (asset.type === 'CAR' && asset.purchasePrice && asset.purchaseYear) {
-          const carValue = getCarValue(asset.purchasePrice, asset.purchaseYear, asset.mileage || 0, asset.condition || 'good');
+          // Pass car name as car type for better depreciation calculation
+          const carType = asset.name || asset.description || 'sedan';
+          const carValue = getCarValue(
+            asset.purchasePrice,
+            asset.purchaseYear,
+            asset.mileage || 0,
+            asset.condition || 'good',
+            carType
+          );
           prices[`car_${asset.id}`] = carValue;
         } else if (asset.type === 'REAL_ESTATE' && asset.purchasePrice && asset.purchaseYear) {
           const reValue = await getRealEstateValue(asset.purchasePrice, asset.purchaseYear, asset.storageLocation, settings.currency);
@@ -161,17 +189,27 @@ export default function AssetList({ onEdit, refreshTrigger }) {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this asset?')) {
-      try {
-        await deleteAsset(id);
-        loadAssets();
-      } catch (err) {
-        const localAssets = JSON.parse(localStorage.getItem('assets_v1') || '[]');
-        const updated = localAssets.filter(a => a.id !== id);
-        localStorage.setItem('assets_v1', JSON.stringify(updated));
-        setAssets(updated);
-      }
+    if (!window.confirm('Are you sure you want to delete this asset?')) {
+      return;
     }
+
+    console.log('Deleting asset with ID:', id);
+
+    // Delete from API (optional, won't fail if backend is down)
+    await deleteAsset(id);
+
+    // Delete from localStorage
+    const localAssets = JSON.parse(localStorage.getItem('assets_v1') || '[]');
+    const idStr = String(id);
+    console.log('Current assets:', localAssets.length, 'Looking for ID:', idStr);
+
+    const updated = localAssets.filter(a => String(a.id) !== idStr);
+    console.log('After filter:', updated.length);
+
+    localStorage.setItem('assets_v1', JSON.stringify(updated));
+
+    // Update state with deduplicated list
+    setAssets(deduplicateAssets(updated));
   };
 
   const formatCurrency = (amount) => {
@@ -230,26 +268,26 @@ export default function AssetList({ onEdit, refreshTrigger }) {
       {/* Summary Cards */}
       <div className="row g-3 mb-4">
         <div className="col-md-4">
-          <div className="p-3 rounded border text-center" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="p-3 rounded border text-center h-100 d-flex flex-column justify-content-center" style={{ background: 'var(--bg-secondary)', minHeight: '100px' }}>
             <small className="text-muted d-block">Total Portfolio Value</small>
             <h3 className="text-danger mb-0">{formatCurrency(totalValue)}</h3>
-            {updatingPrices && <small className="text-muted">Updating prices...</small>}
+            {updatingPrices && <small className="text-muted">Updating...</small>}
           </div>
         </div>
         <div className="col-md-4">
-          <div className="p-3 rounded border text-center" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="p-3 rounded border text-center h-100 d-flex flex-column justify-content-center" style={{ background: 'var(--bg-secondary)', minHeight: '100px' }}>
             <small className="text-muted d-block">Total Assets</small>
             <h3 className="mb-0">{assets.length}</h3>
             <small className="text-muted">{Object.keys(assetsByType).length} categories</small>
           </div>
         </div>
         <div className="col-md-4">
-          <div className="p-3 rounded border text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <small className="text-muted d-block">Gold Rate Today</small>
+          <div className="p-3 rounded border text-center h-100 d-flex flex-column justify-content-center" style={{ background: 'var(--bg-secondary)', minHeight: '100px' }}>
+            <small className="text-muted d-block">Gold Rate (24K)</small>
             <h3 className="mb-0" style={{ color: '#FFD700' }}>
               {marketPrices.gold ? formatCurrency(marketPrices.gold.pricePerGram) : '—'}
             </h3>
-            <small className="text-muted">per gram ({settings.currency})</small>
+            <small className="text-muted">per gram • Spot price</small>
           </div>
         </div>
       </div>
@@ -300,10 +338,114 @@ export default function AssetList({ onEdit, refreshTrigger }) {
 
       {/* Assets Display */}
       {filteredAssets.length === 0 ? (
-        <div className="text-center py-5">
+        <div className="text-center py-4">
           <span style={{ fontSize: '64px' }}>💎</span>
-          <h4 className="mt-3">No Assets Found</h4>
-          <p className="text-muted">{searchQuery ? 'Try a different search term' : 'Add your first asset to start tracking'}</p>
+          <h4 className="mt-3">{searchQuery ? 'No Assets Found' : 'Start Tracking Your Valuables'}</h4>
+          <p className="text-muted mb-4">
+            {searchQuery ? 'Try a different search term' : 'Keep track of where your valuable items are stored and their current value'}
+          </p>
+
+          {/* Sample Assets Guide */}
+          {!searchQuery && (
+            <div className="card text-start mx-auto" style={{ maxWidth: '600px' }}>
+              <div className="card-header bg-danger text-white">
+                <strong>📝 Examples: What You Can Track</strong>
+              </div>
+              <div className="card-body">
+                <div className="row g-3">
+                  {/* Gold Example */}
+                  <div className="col-md-6">
+                    <div className="p-2 rounded border d-flex align-items-start gap-2">
+                      <span style={{ fontSize: '24px' }}>🥇</span>
+                      <div>
+                        <strong className="d-block">Gold Jewelry</strong>
+                        <small className="text-muted d-block">• 50g Gold Chain</small>
+                        <small className="text-muted d-block">• Location: Bank Locker</small>
+                        <small className="text-muted d-block">• Auto-calculates value based on gold rate</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Real Estate Example */}
+                  <div className="col-md-6">
+                    <div className="p-2 rounded border d-flex align-items-start gap-2">
+                      <span style={{ fontSize: '24px' }}>🏠</span>
+                      <div>
+                        <strong className="d-block">House / Apartment</strong>
+                        <small className="text-muted d-block">• 2BHK in Downtown</small>
+                        <small className="text-muted d-block">• Purchase: $250,000</small>
+                        <small className="text-muted d-block">• Tracks appreciation over time</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Car Example */}
+                  <div className="col-md-6">
+                    <div className="p-2 rounded border d-flex align-items-start gap-2">
+                      <span style={{ fontSize: '24px' }}>🚗</span>
+                      <div>
+                        <strong className="d-block">Vehicle</strong>
+                        <small className="text-muted d-block">• 2022 Honda Accord</small>
+                        <small className="text-muted d-block">• Mileage: 25,000 miles</small>
+                        <small className="text-muted d-block">• Calculates depreciation</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Land Example */}
+                  <div className="col-md-6">
+                    <div className="p-2 rounded border d-flex align-items-start gap-2">
+                      <span style={{ fontSize: '24px' }}>🏞️</span>
+                      <div>
+                        <strong className="d-block">Land / Plot</strong>
+                        <small className="text-muted d-block">• 1 acre farm land</small>
+                        <small className="text-muted d-block">• Location: Texas</small>
+                        <small className="text-muted d-block">• Document: Drawer #3</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Documents Example */}
+                  <div className="col-md-6">
+                    <div className="p-2 rounded border d-flex align-items-start gap-2">
+                      <span style={{ fontSize: '24px' }}>📄</span>
+                      <div>
+                        <strong className="d-block">Important Documents</strong>
+                        <small className="text-muted d-block">• Passport, Birth Certificate</small>
+                        <small className="text-muted d-block">• Location: Safe Box</small>
+                        <small className="text-muted d-block">• Never forget where they are!</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Jewelry Example */}
+                  <div className="col-md-6">
+                    <div className="p-2 rounded border d-flex align-items-start gap-2">
+                      <span style={{ fontSize: '24px' }}>💎</span>
+                      <div>
+                        <strong className="d-block">Jewelry & Valuables</strong>
+                        <small className="text-muted d-block">• Diamond Ring, Watches</small>
+                        <small className="text-muted d-block">• Location: Bedroom Safe</small>
+                        <small className="text-muted d-block">• Track insurance value</small>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <hr className="my-3" />
+
+                <div className="bg-light p-3 rounded">
+                  <h6 className="mb-2">💡 Pro Tips</h6>
+                  <ul className="mb-0 small text-muted">
+                    <li><strong>Location matters:</strong> Add specific locations like "Master Bedroom → Closet → Top Shelf"</li>
+                    <li><strong>Verify regularly:</strong> The app reminds you to check if items are still there</li>
+                    <li><strong>Gold auto-updates:</strong> Enter weight in grams, price updates daily</li>
+                    <li><strong>Cars depreciate:</strong> Enter purchase year & mileage for accurate value</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : viewMode === 'grid' ? (
         <div className="row g-3">
@@ -339,7 +481,23 @@ export default function AssetList({ onEdit, refreshTrigger }) {
                         <small className="text-muted">{asset.quantity}g × {formatCurrency(marketPrices.gold?.pricePerGram)}/g</small>
                       )}
 
-                      {valueChange && (
+                      {asset.type === 'CAR' && marketPrices[`car_${asset.id}`] && (
+                        <div className="small">
+                          <div className="text-muted">
+                            {asset.purchaseYear} • {(asset.mileage || 0).toLocaleString()} mi • {asset.condition || 'Good'}
+                          </div>
+                          <div className="text-danger">
+                            ↓ {formatCurrency(marketPrices[`car_${asset.id}`].depreciation)} ({marketPrices[`car_${asset.id}`].depreciationPercent}% depreciated)
+                          </div>
+                          <div className={`small ${marketPrices[`car_${asset.id}`].mileageStatus === 'low' ? 'text-success' : marketPrices[`car_${asset.id}`].mileageStatus === 'high' ? 'text-warning' : 'text-muted'}`}>
+                            {marketPrices[`car_${asset.id}`].mileageStatus === 'low' ? '✓ Low mileage' :
+                             marketPrices[`car_${asset.id}`].mileageStatus === 'high' ? '⚠ High mileage' :
+                             '• Average mileage'}
+                          </div>
+                        </div>
+                      )}
+
+                      {valueChange && asset.type !== 'CAR' && (
                         <div className={`small ${valueChange.isPositive ? 'text-success' : 'text-danger'}`}>
                           {valueChange.isPositive ? '↑' : '↓'} {formatCurrency(Math.abs(valueChange.change))} ({valueChange.percent}%)
                         </div>
@@ -395,10 +553,17 @@ export default function AssetList({ onEdit, refreshTrigger }) {
       )}
 
       <div className="text-center mt-4">
-        <button className="btn btn-outline-secondary btn-sm" onClick={() => fetchMarketPrices(assets)} disabled={updatingPrices}>
+        <button
+          className="btn btn-outline-secondary btn-sm"
+          onClick={() => {
+            clearMarketPriceCache(); // Clear cache first
+            fetchMarketPrices(assets);
+          }}
+          disabled={updatingPrices}
+        >
           {updatingPrices ? '⏳ Updating...' : '🔄 Refresh Market Prices'}
         </button>
-        <small className="text-muted d-block mt-1">Gold & real estate prices update automatically based on location</small>
+        <small className="text-muted d-block mt-1">Gold rate: $165/gram (24K) • Click to refresh</small>
       </div>
     </div>
   );
