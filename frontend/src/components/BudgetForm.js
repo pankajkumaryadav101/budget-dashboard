@@ -58,9 +58,8 @@ export default function BudgetForm({ onSave }) {
     try {
       await createBudgetItem(budgetItem);
 
-      // Also save to localStorage for local tracking
+      // Save to localStorage for local tracking (only transactions_v1 to avoid double-counting)
       const TRANSACTIONS_KEY = 'transactions_v1';
-      const MONTHLY_EXPENSES_KEY = 'monthly_expenses_v1';
 
       const localItem = {
         id: Date.now().toString(),
@@ -73,17 +72,11 @@ export default function BudgetForm({ onSave }) {
         createdAt: new Date().toISOString()
       };
 
-      // Save to transactions
+      // Save to transactions only
       const transactions = JSON.parse(localStorage.getItem(TRANSACTIONS_KEY) || '[]');
       transactions.unshift(localItem);
       localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
 
-      // Save to monthly expenses if it's an expense
-      if (formData.transactionType === 'EXPENSE') {
-        const monthlyExpenses = JSON.parse(localStorage.getItem(MONTHLY_EXPENSES_KEY) || '[]');
-        monthlyExpenses.unshift(localItem);
-        localStorage.setItem(MONTHLY_EXPENSES_KEY, JSON.stringify(monthlyExpenses));
-      }
 
       setFormData({
         name: '',

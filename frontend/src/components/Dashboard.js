@@ -59,20 +59,44 @@ export default function Dashboard() {
 
   const loadLocalData = () => {
     try {
-      setTransactions(JSON.parse(localStorage.getItem(TRANSACTIONS_KEY) || '[]'));
+      // Load transactions and dedupe by ID
+      const storedTxs = JSON.parse(localStorage.getItem(TRANSACTIONS_KEY) || '[]');
+      const seenTxIds = new Set();
+      const uniqueTxs = storedTxs.filter(t => {
+        if (!t.id) return true; // Keep items without ID
+        if (seenTxIds.has(t.id)) return false;
+        seenTxIds.add(t.id);
+        return true;
+      });
+      if (uniqueTxs.length !== storedTxs.length) {
+        localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(uniqueTxs));
+      }
+      setTransactions(uniqueTxs);
+
+      // Load monthly expenses and dedupe
+      const storedMonthly = JSON.parse(localStorage.getItem(MONTHLY_EXPENSES_KEY) || '[]');
+      const seenMonthlyIds = new Set();
+      const uniqueMonthly = storedMonthly.filter(t => {
+        if (!t.id) return true;
+        if (seenMonthlyIds.has(t.id)) return false;
+        seenMonthlyIds.add(t.id);
+        return true;
+      });
+      if (uniqueMonthly.length !== storedMonthly.length) {
+        localStorage.setItem(MONTHLY_EXPENSES_KEY, JSON.stringify(uniqueMonthly));
+      }
+      setMonthlyExpenses(uniqueMonthly);
 
       // Load budgets and remove duplicates
       const storedBudgets = JSON.parse(localStorage.getItem(BUDGETS_KEY) || '[]');
       const uniqueBudgets = storedBudgets.filter((b, index, self) =>
         index === self.findIndex(t => t.name === b.name)
       );
-      // Save deduplicated list back if there were duplicates
       if (uniqueBudgets.length !== storedBudgets.length) {
         localStorage.setItem(BUDGETS_KEY, JSON.stringify(uniqueBudgets));
       }
       setBudgets(uniqueBudgets);
 
-      setMonthlyExpenses(JSON.parse(localStorage.getItem(MONTHLY_EXPENSES_KEY) || '[]'));
       setRecurringItems(JSON.parse(localStorage.getItem(RECURRING_KEY) || '[]'));
     } catch (err) {
       console.error('Failed to load local data:', err);
@@ -94,34 +118,108 @@ export default function Dashboard() {
     setShowAddAsset(true);
   };
 
-  // Calculate spent for each category from transactions
-  const getSpentByCategory = () => {
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+  // Normalize and dedupe expense items across different localStorage sources for a specific month
+  const getExpenseItemsForMonth = (month, year) => {
+    // Only treat rows as expenses if:
+    // - explicit type is EXPENSE, OR
+    // - record came from monthly_expenses storage (legacy), OR
+    // - transactionType is EXPENSE
+    const isExpense = (row, source) => {
+      if (row?.type) return String(row.type).toUpperCase() === 'EXPENSE';
+      if (row?.transactionType) return String(row.transactionType).toUpperCase() === 'EXPENSE';
+      if (source === 'monthly') return true;
+      // Default: if no type specified, treat as expense (legacy data)
+      return true;
+    };
 
-    // Combine all expense sources
-    const allExpenses = [...transactions, ...monthlyExpenses];
-
-    // Filter for current month
-    const thisMonthExpenses = allExpenses.filter(tx => {
-      if (!tx.date && !tx.createdAt) return false;
-      const d = new Date(tx.date || tx.createdAt);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-
-    // Group by category with currency conversion
-    const categorySpent = {};
-    thisMonthExpenses.forEach(tx => {
-      const category = tx.category || 'Other';
-      let amount = parseFloat(tx.amount) || 0;
-
-      // Convert to current display currency if needed
-      const txCurrency = tx.currency || 'USD';
-      if (txCurrency !== settings.currency) {
-        amount = convertCurrency(amount, txCurrency, settings.currency);
+    // Parse date properly to avoid timezone issues
+    const parseLocalDate = (dateStr) => {
+      if (!dateStr) return null;
+      if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d);
       }
+      return new Date(dateStr);
+    };
 
-      categorySpent[category] = (categorySpent[category] || 0) + amount;
+    const inTargetMonth = (row) => {
+      const rawDate = row?.date || row?.transactionDate || row?.createdAt;
+      if (!rawDate) return false;
+      const d = parseLocalDate(rawDate);
+      if (!d || isNaN(d.getTime())) return false;
+      return d.getMonth() === month && d.getFullYear() === year;
+    };
+
+    const normalize = (row, source) => {
+      const rawDate = row?.date || row?.transactionDate || row?.createdAt;
+      const d = parseLocalDate(rawDate);
+      const dateIso = d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` : '';
+      const amount = parseFloat(row?.amount) || 0;
+      const category = row?.category || 'Other';
+      const description = row?.description || row?.name || '';
+      const currency = row?.currency || 'USD';
+      const id = row?.id || '';
+
+      return {
+        id,
+        dateIso,
+        amount,
+        category,
+        description,
+        currency,
+        source,
+        raw: row,
+      };
+    };
+
+    // Build list from sources - filter for target month and expenses only
+    const txRows = (transactions || []).filter(r => inTargetMonth(r) && isExpense(r, 'tx'));
+    const monthlyRows = (monthlyExpenses || []).filter(r => inTargetMonth(r) && isExpense(r, 'monthly'));
+
+    // Convert to normalized rows
+    const normalized = [
+      ...txRows.map(r => normalize(r, 'tx')),
+      ...monthlyRows.map(r => normalize(r, 'monthly')),
+    ];
+
+    // Dedupe by ID first, then by fingerprint as fallback
+    const seenIds = new Set();
+    const seenFingerprints = new Set();
+    const deduped = [];
+
+    for (const r of normalized) {
+      // If we have an ID, use it for deduplication
+      if (r.id && seenIds.has(r.id)) continue;
+      if (r.id) seenIds.add(r.id);
+
+      // Also dedupe by fingerprint (amount + date + category) for items without matching IDs
+      const fingerprint = `${r.dateIso}__${r.category}__${r.amount}`;
+      if (seenFingerprints.has(fingerprint)) continue;
+      seenFingerprints.add(fingerprint);
+
+      deduped.push(r);
+    }
+
+    return deduped;
+  };
+
+  // Get current month expense items (convenience wrapper)
+  const getThisMonthExpenseItems = () => {
+    const now = new Date();
+    return getExpenseItemsForMonth(now.getMonth(), now.getFullYear());
+  };
+
+  // Calculate spent for each category from transactions (expenses only)
+  const getSpentByCategory = () => {
+    const items = getThisMonthExpenseItems();
+
+    const categorySpent = {};
+    items.forEach(item => {
+      let amount = item.amount;
+      if (item.currency !== settings.currency) {
+        amount = convertCurrency(amount, item.currency, settings.currency);
+      }
+      categorySpent[item.category] = (categorySpent[item.category] || 0) + amount;
     });
 
     return categorySpent;
@@ -144,46 +242,115 @@ export default function Dashboard() {
 
   // Calculate summary data from local storage with currency conversion
   const calculateSummary = () => {
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
     const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-    // Helper to get converted amount
-    const getConvertedAmount = (expense) => {
-      let amount = parseFloat(expense.amount) || 0;
-      const expCurrency = expense.currency || 'USD';
-      if (expCurrency !== settings.currency) {
-        amount = convertCurrency(amount, expCurrency, settings.currency);
-      }
-      return amount;
+    // Sum expenses for a specific month
+    const sumExpensesForMonth = (month, year) => {
+      const items = getExpenseItemsForMonth(month, year);
+      return items.reduce((sum, i) => {
+        let amount = i.amount;
+        if (i.currency !== settings.currency) {
+          amount = convertCurrency(amount, i.currency, settings.currency);
+        }
+        return sum + amount;
+      }, 0);
     };
 
-    const thisMonthExpenses = monthlyExpenses.filter(e => {
-      if (!e.date) return false;
-      const d = new Date(e.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    }).reduce((sum, e) => sum + getConvertedAmount(e), 0);
+    const thisMonthExpenses = sumExpensesForMonth(currentMonth, currentYear);
+    const lastMonthExpenses = sumExpensesForMonth(lastMonth, lastMonthYear);
 
-    const lastMonthExpenses = monthlyExpenses.filter(e => {
-      if (!e.date) return false;
-      const d = new Date(e.date);
-      return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
-    }).reduce((sum, e) => sum + getConvertedAmount(e), 0);
-
+    // Get budget total from budget categories
     const totalBudget = budgets.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
 
-    // Calculate actual spent from transactions (not from stored spent value)
-    const categorySpent = getSpentByCategory();
-    const totalSpent = Object.values(categorySpent).reduce((sum, v) => sum + v, 0);
+    // Load user's set budget amount (separate from categories)
+    let userBudget = 0;
+    try {
+      const budgetData = localStorage.getItem('user_budget_v1');
+      if (budgetData) {
+        userBudget = parseFloat(budgetData) || 0;
+      }
+    } catch (_) {
+      userBudget = 0;
+    }
+
+    // Load monthly salary (income)
+    let monthlyIncome = 0;
+    try {
+      const salaryData = localStorage.getItem('user_salary_v1');
+      if (salaryData) {
+        const parsed = JSON.parse(salaryData);
+        if (typeof parsed === 'object' && parsed.amount) {
+          monthlyIncome = parseFloat(parsed.amount) || 0;
+          const salCurrency = parsed.currency || 'USD';
+          if (salCurrency !== settings.currency) {
+            monthlyIncome = convertCurrency(monthlyIncome, salCurrency, settings.currency);
+          }
+        } else {
+          monthlyIncome = parseFloat(salaryData) || 0;
+        }
+      }
+    } catch (_) {
+      monthlyIncome = 0;
+    }
+
+    // Budget Left = User Budget OR Budget Categories Total - Expenses
+    // Priority: userBudget > totalBudget (categories) > monthlyIncome (salary)
+    let effectiveBudget = 0;
+    if (userBudget > 0) {
+      effectiveBudget = userBudget;
+    } else if (totalBudget > 0) {
+      effectiveBudget = totalBudget;
+    } else {
+      effectiveBudget = monthlyIncome;
+    }
+
+    const budgetRemaining = effectiveBudget - thisMonthExpenses;
+
+    // Monthly Balance = Salary - Expenses (this uses salary)
+    const monthlyBalance = monthlyIncome - thisMonthExpenses;
+
+    // Calculate net worth from local assets
+    let netWorth = 0;
+    try {
+      const assets = JSON.parse(localStorage.getItem('assets_v1') || '[]');
+      netWorth = assets.reduce((sum, asset) => {
+        let value = parseFloat(asset.currentMarketPrice || asset.purchasePrice) || 0;
+        const assetCurrency = asset.currency || 'USD';
+        if (assetCurrency !== settings.currency) {
+          value = convertCurrency(value, assetCurrency, settings.currency);
+        }
+        return sum + value;
+      }, 0);
+    } catch (_) {
+      netWorth = 0;
+    }
+
+    // Debug log to help troubleshoot
+    console.log('Budget Calculation:', {
+      userBudget,
+      totalBudget,
+      monthlyIncome,
+      effectiveBudget,
+      thisMonthExpenses,
+      budgetRemaining,
+      expectedRemaining: effectiveBudget - thisMonthExpenses,
+      budgetCategories: budgets.map(b => ({ name: b.name, amount: b.amount }))
+    });
 
     return {
       thisMonthExpenses,
       lastMonthExpenses,
       expenseChange: lastMonthExpenses > 0 ? ((thisMonthExpenses - lastMonthExpenses) / lastMonthExpenses * 100).toFixed(1) : 0,
-      totalBudget,
-      totalSpent,
-      budgetRemaining: totalBudget - totalSpent
+      totalBudget: effectiveBudget,
+      totalSpent: thisMonthExpenses,
+      budgetRemaining,
+      monthlyIncome,
+      monthlyBalance,
+      netWorth,
     };
   };
 
@@ -254,7 +421,10 @@ export default function Dashboard() {
             <div className="col-6 col-md-3">
               <div className="card h-100 text-center p-3">
                 <small className="text-muted">Net Worth</small>
-                <h4 className="text-danger mb-0">{settings.currencySymbol}{(dashboardData?.netWorth || 0).toLocaleString()}</h4>
+                <h4 className="text-danger mb-0">{settings.currencySymbol}{(summary.netWorth || 0).toLocaleString()}</h4>
+                {summary.netWorth === 0 && (
+                  <small className="text-muted">Add assets</small>
+                )}
               </div>
             </div>
             <div className="col-6 col-md-3">
@@ -268,10 +438,21 @@ export default function Dashboard() {
             </div>
             <div className="col-6 col-md-3">
               <div className="card h-100 text-center p-3">
-                <small className="text-muted">{shortMonth} Budget Left</small>
+                <small className="text-muted">
+                  {summary.totalBudget > 0 ? `${shortMonth} Budget Left` : `${shortMonth} Remaining`}
+                </small>
                 <h4 className={`mb-0 ${summary.budgetRemaining >= 0 ? 'text-success' : 'text-danger'}`}>
-                  {settings.currencySymbol}{summary.budgetRemaining.toLocaleString()}
+                  {summary.budgetRemaining >= 0
+                    ? `${settings.currencySymbol}${summary.budgetRemaining.toLocaleString()}`
+                    : `-${settings.currencySymbol}${Math.abs(summary.budgetRemaining).toLocaleString()}`
+                  }
                 </h4>
+                {summary.budgetRemaining < 0 && (
+                  <small className="text-danger">Over budget!</small>
+                )}
+                {summary.totalBudget === 0 && (
+                  <small className="text-muted">Set salary/budget</small>
+                )}
               </div>
             </div>
             <div className="col-6 col-md-3">
@@ -332,66 +513,101 @@ export default function Dashboard() {
                       Manage →
                     </button>
                   </div>
-                  {budgets.length === 0 ? (
-                    <div className="text-center py-4">
-                      <span style={{ fontSize: '32px' }}>📊</span>
-                      <p className="text-muted mb-2 mt-2">No budgets set yet</p>
-                      <p className="small text-muted mb-3">Create budget categories to track your spending</p>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => setActiveTab('budget')}
-                      >
-                        + Create Budget
-                      </button>
-                    </div>
-                  ) : (() => {
+
+                  {(() => {
                     // Calculate spent by category from actual transactions
                     const categorySpent = getSpentByCategory();
+                    const totalSpent = Object.values(categorySpent).reduce((sum, v) => sum + v, 0);
+
+                    // Sort categories by amount spent (descending)
+                    const sortedCategories = Object.entries(categorySpent)
+                      .sort((a, b) => b[1] - a[1]);
+
+                    if (sortedCategories.length === 0) {
+                      return (
+                        <div className="text-center py-4">
+                          <span style={{ fontSize: '32px' }}>📊</span>
+                          <p className="text-muted mb-2 mt-2">No expenses this month</p>
+                          <p className="small text-muted mb-3">Add transactions to see your spending breakdown</p>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => setActiveTab('budget')}
+                          >
+                            + Add Expense
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    // Category icons/colors
+                    const getCategoryStyle = (cat) => {
+                      const catLower = cat.toLowerCase();
+                      if (catLower.includes('grocer')) return { icon: '🛒', color: '#28a745' };
+                      if (catLower.includes('shop')) return { icon: '🛍️', color: '#6f42c1' };
+                      if (catLower.includes('entertain') || catLower.includes('subscript')) return { icon: '🎬', color: '#e83e8c' };
+                      if (catLower.includes('health') || catLower.includes('medical')) return { icon: '🏥', color: '#17a2b8' };
+                      if (catLower.includes('food') || catLower.includes('dining') || catLower.includes('restaurant')) return { icon: '🍔', color: '#fd7e14' };
+                      if (catLower.includes('transport') || catLower.includes('gas') || catLower.includes('fuel') || catLower.includes('car')) return { icon: '🚗', color: '#20c997' };
+                      if (catLower.includes('utility') || catLower.includes('electric') || catLower.includes('water') || catLower.includes('internet') || catLower.includes('phone')) return { icon: '💡', color: '#ffc107' };
+                      if (catLower.includes('rent') || catLower.includes('hous')) return { icon: '🏠', color: '#6c757d' };
+                      if (catLower.includes('education') || catLower.includes('school') || catLower.includes('child')) return { icon: '📚', color: '#007bff' };
+                      if (catLower.includes('travel')) return { icon: '✈️', color: '#0dcaf0' };
+                      if (catLower.includes('invest') || catLower.includes('saving')) return { icon: '💰', color: '#198754' };
+                      if (catLower.includes('insurance')) return { icon: '🛡️', color: '#6610f2' };
+                      if (catLower.includes('gym') || catLower.includes('fitness')) return { icon: '💪', color: '#dc3545' };
+                      return { icon: '📦', color: '#6c757d' };
+                    };
 
                     return (
-                      <div className="d-flex flex-column gap-3">
-                        {/* Remove duplicates by name and show unique budgets */}
-                        {budgets
-                          .filter((b, index, self) =>
-                            index === self.findIndex(t => t.name === b.name || t.id === b.id)
-                          )
-                          .slice(0, 4)
-                          .map((b) => {
-                            // Get spent from actual transactions, not stored value
-                            const spent = getSpentForBudgetCategory(b.name, categorySpent);
-                            const amount = parseFloat(b.amount) || 1;
-                            const percent = amount > 0 ? Math.min((spent / amount) * 100, 100) : 0;
-                            const remaining = amount - spent;
-                            const isOverBudget = spent > amount;
+                      <div>
+                        {/* Total Summary */}
+                        <div className="d-flex justify-content-between align-items-center p-2 mb-3 rounded" style={{ background: 'var(--bg-secondary)' }}>
+                          <span className="fw-bold">Total Spent</span>
+                          <span className="fw-bold text-danger">{settings.currencySymbol}{totalSpent.toLocaleString()}</span>
+                        </div>
+
+                        {/* Category Breakdown */}
+                        <div className="d-flex flex-column gap-2">
+                          {sortedCategories.slice(0, 6).map(([cat, amount]) => {
+                            const percent = totalSpent > 0 ? (amount / totalSpent) * 100 : 0;
+                            const style = getCategoryStyle(cat);
 
                             return (
-                              <div key={`budget-${b.id || b.name}`} className="p-2 rounded" style={{ background: 'var(--bg-secondary)' }}>
-                                <div className="d-flex justify-content-between mb-1">
-                                  <span className="fw-medium">{b.name || 'Unnamed Budget'}</span>
-                                  <span className={isOverBudget || percent >= 90 ? 'text-danger' : percent >= 70 ? 'text-warning' : 'text-success'}>
-                                    {isOverBudget ? `${((spent / amount) * 100).toFixed(0)}%` : `${percent.toFixed(0)}%`}
-                                  </span>
+                              <div key={cat} className="p-2 rounded border">
+                                <div className="d-flex justify-content-between align-items-center mb-1">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <span>{style.icon}</span>
+                                    <span className="fw-medium">{cat}</span>
+                                  </div>
+                                  <div className="text-end">
+                                    <span className="fw-bold text-danger">{settings.currencySymbol}{amount.toLocaleString()}</span>
+                                    <span className="badge ms-2" style={{ backgroundColor: style.color }}>
+                                      {percent.toFixed(1)}%
+                                    </span>
+                                  </div>
                                 </div>
-                                <div className="progress mb-1" style={{ height: '8px' }}>
+                                <div className="progress" style={{ height: '6px' }}>
                                   <div
-                                    className={`progress-bar ${isOverBudget || percent >= 90 ? 'bg-danger' : percent >= 70 ? 'bg-warning' : 'bg-success'}`}
-                                    style={{ width: `${Math.min(percent, 100)}%` }}
+                                    className="progress-bar"
+                                    style={{ width: `${percent}%`, backgroundColor: style.color }}
                                   />
-                                </div>
-                                <div className="d-flex justify-content-between">
-                                  <small className="text-muted">
-                                    {settings.currencySymbol}{spent.toLocaleString()} spent
-                                  </small>
-                                  <small className={remaining >= 0 ? 'text-success' : 'text-danger'}>
-                                    {remaining >= 0
-                                      ? `${settings.currencySymbol}${remaining.toLocaleString()} left`
-                                      : `${settings.currencySymbol}${Math.abs(remaining).toLocaleString()} over`
-                                    }
-                                  </small>
                                 </div>
                               </div>
                             );
                           })}
+                        </div>
+
+                        {/* Show more link if more than 6 categories */}
+                        {sortedCategories.length > 6 && (
+                          <div className="text-center mt-2">
+                            <button
+                              className="btn btn-link btn-sm text-muted"
+                              onClick={() => setActiveTab('analytics')}
+                            >
+                              +{sortedCategories.length - 6} more categories →
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -519,7 +735,7 @@ export default function Dashboard() {
             <div className="card mt-4">
               <div className="card-body">
                 <h5 className="card-title border-bottom pb-2 mb-3">📝 {shortMonth} - {t("transactions")}</h5>
-                <TransactionList limit={15} showFilters={true} />
+                <TransactionList limit={15} showFilters={true} refreshTrigger={refreshTrigger} onUpdate={handleRefresh} />
                 <AddTransaction onAdd={handleRefresh} />
               </div>
             </div>
@@ -532,7 +748,12 @@ export default function Dashboard() {
                 <div className="d-flex flex-column gap-3">
                   <div className="d-flex justify-content-between align-items-center p-3 rounded bg-success bg-opacity-10">
                     <span>{shortMonth} Income</span>
-                    <span className="fw-bold text-success">{settings.currencySymbol}{(dashboardData?.monthlyIncome || 0).toLocaleString()}</span>
+                    <span className="fw-bold text-success">
+                      {summary.monthlyIncome > 0
+                        ? `${settings.currencySymbol}${summary.monthlyIncome.toLocaleString()}`
+                        : <small className="text-muted">Set salary in Analytics</small>
+                      }
+                    </span>
                   </div>
                   <div className="d-flex justify-content-between align-items-center p-3 rounded bg-danger bg-opacity-10">
                     <span>{shortMonth} Expenses</span>
@@ -540,8 +761,14 @@ export default function Dashboard() {
                   </div>
                   <div className="d-flex justify-content-between align-items-center p-3 rounded border">
                     <span>{shortMonth} Balance</span>
-                    <span className={`fw-bold ${(dashboardData?.monthlyBalance || 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                      {settings.currencySymbol}{(dashboardData?.monthlyBalance || 0).toLocaleString()}
+                    <span className={`fw-bold ${summary.monthlyBalance >= 0 ? 'text-success' : 'text-danger'}`}>
+                      {summary.monthlyIncome > 0
+                        ? (summary.monthlyBalance >= 0
+                            ? `${settings.currencySymbol}${summary.monthlyBalance.toLocaleString()}`
+                            : `-${settings.currencySymbol}${Math.abs(summary.monthlyBalance).toLocaleString()}`
+                          )
+                        : <small className="text-muted">—</small>
+                      }
                     </span>
                   </div>
                 </div>

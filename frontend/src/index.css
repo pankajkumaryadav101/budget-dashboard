@@ -20,3 +20,184 @@ input,
 select {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
+
+/* ========== MOBILE RESPONSIVE STYLES ========== */
+
+/* Mobile viewport fix */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Container adjustments for mobile */
+@media (max-width: 768px) {
+  .container-fluid {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* Cards */
+  .card {
+    margin-bottom: 12px;
+  }
+
+  .card-body {
+    padding: 12px !important;
+  }
+
+  /* Navigation pills - horizontal scroll on mobile */
+  .nav-pills {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .nav-pills::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-pills .nav-link {
+    white-space: nowrap;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  /* Stats cards */
+  .col-6.col-md-3 .card {
+    min-height: auto;
+  }
+
+  .col-6.col-md-3 .card h4 {
+    font-size: 1.1rem;
+  }
+
+  .col-6.col-md-3 .card small {
+    font-size: 11px;
+  }
+
+  /* Tables */
+  .table-responsive {
+    font-size: 13px;
+  }
+
+  .table th, .table td {
+    padding: 8px 6px;
+  }
+
+  /* Forms */
+  .form-control, .form-select {
+    font-size: 16px !important; /* Prevents iOS zoom */
+  }
+
+  .input-group-sm .form-control,
+  .input-group-sm .input-group-text {
+    font-size: 14px !important;
+  }
+
+  /* Buttons */
+  .btn-sm {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  /* Progress bars */
+  .progress {
+    height: 6px !important;
+  }
+
+  /* Charts - make them fit mobile */
+  canvas {
+    max-height: 200px !important;
+  }
+
+  /* Row gaps */
+  .row.g-3 {
+    --bs-gutter-y: 0.75rem;
+  }
+
+  .row.g-4 {
+    --bs-gutter-y: 1rem;
+  }
+
+  /* Modal adjustments */
+  .modal-dialog {
+    margin: 10px;
+  }
+
+  /* Typography */
+  h4 {
+    font-size: 1.2rem;
+  }
+
+  h5 {
+    font-size: 1rem;
+  }
+
+  /* Badge size */
+  .badge {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+}
+
+/* Extra small devices */
+@media (max-width: 480px) {
+  .container-fluid {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  .card-body {
+    padding: 10px !important;
+  }
+
+  .col-6.col-md-3 .card h4 {
+    font-size: 1rem;
+  }
+
+  /* Stack form elements */
+  .row.g-2 > [class*="col-"] {
+    margin-bottom: 8px;
+  }
+
+  /* Make buttons full width on very small screens */
+  .btn-group-sm .btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+}
+
+/* Touch-friendly targets */
+@media (hover: none) and (pointer: coarse) {
+  .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .btn-sm {
+    min-height: 36px;
+  }
+
+  .nav-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Larger tap targets for checkboxes and radios */
+  .form-check-input {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Safe area for notched phones (iPhone X+) */
+@supports (padding: max(0px)) {
+  .container-fluid {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+

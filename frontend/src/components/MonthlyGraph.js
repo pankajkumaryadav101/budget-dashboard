@@ -25,6 +25,7 @@ ChartJS.register(
 );
 
 const MONTHLY_EXPENSES_KEY = 'monthly_expenses_v1';
+const TRANSACTIONS_KEY = 'transactions_v1';
 const SALARY_KEY = 'user_salary_v1';
 
 const MonthlyGraph = () => {
@@ -37,10 +38,31 @@ const MonthlyGraph = () => {
     loadLocalData();
   }, [settings.currency]); // Reload when currency changes
 
+  // Parse date string properly to avoid timezone issues
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return null;
+    if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+    return new Date(dateStr);
+  };
+
   const loadLocalData = () => {
     try {
-      // Load expenses from localStorage
-      const expenses = JSON.parse(localStorage.getItem(MONTHLY_EXPENSES_KEY) || '[]');
+      // Load expenses from both localStorage sources
+      const monthlyExp = JSON.parse(localStorage.getItem(MONTHLY_EXPENSES_KEY) || '[]');
+      const transactions = JSON.parse(localStorage.getItem(TRANSACTIONS_KEY) || '[]');
+
+      // Combine and dedupe by ID
+      const allExpenses = [...transactions, ...monthlyExp];
+      const seenIds = new Set();
+      const uniqueExpenses = allExpenses.filter(e => {
+        if (!e.id) return true;
+        if (seenIds.has(e.id)) return false;
+        seenIds.add(e.id);
+        return true;
+      });
 
       // Load salary with currency info
       const storedSalaryData = localStorage.getItem(SALARY_KEY);
@@ -70,20 +92,27 @@ const MonthlyGraph = () => {
       const currentYear = new Date().getFullYear();
       const expensesByMonth = Array(12).fill(0);
 
-      expenses.forEach(expense => {
-        if (expense.date) {
-          const date = new Date(expense.date);
-          if (date.getFullYear() === currentYear) {
-            const month = date.getMonth();
-            let amount = parseFloat(expense.amount) || 0;
+      uniqueExpenses.forEach(expense => {
+        const rawDate = expense.date || expense.transactionDate || expense.createdAt;
+        if (rawDate) {
+          const date = parseLocalDate(rawDate);
+          if (date && !isNaN(date.getTime()) && date.getFullYear() === currentYear) {
+            // Only count expenses (not income)
+            const isExpense = !expense.type || String(expense.type).toUpperCase() === 'EXPENSE';
+            const isExpenseTxType = !expense.transactionType || String(expense.transactionType).toUpperCase() === 'EXPENSE';
 
-            // Convert to display currency if needed
-            const expCurrency = expense.currency || 'USD';
-            if (expCurrency !== settings.currency) {
-              amount = convertCurrency(amount, expCurrency, settings.currency);
+            if (isExpense && isExpenseTxType) {
+              const month = date.getMonth();
+              let amount = parseFloat(expense.amount) || 0;
+
+              // Convert to display currency if needed
+              const expCurrency = expense.currency || 'USD';
+              if (expCurrency !== settings.currency) {
+                amount = convertCurrency(amount, expCurrency, settings.currency);
+              }
+
+              expensesByMonth[month] += amount;
             }
-
-            expensesByMonth[month] += amount;
           }
         }
       });

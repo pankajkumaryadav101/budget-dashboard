@@ -161,7 +161,7 @@ export default function BillScanner({ onScanComplete }) {
       merchant: merchant,
       category: category,
       rawText: text,
-      currency: currency,
+      currency: settings.currency,
       confidence: amount ? 'high' : 'low'
     };
   };

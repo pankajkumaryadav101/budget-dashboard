@@ -96,14 +96,27 @@ export default function TransactionComparison() {
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   };
 
+  // Parse date string properly to avoid timezone issues
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return null;
+    if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+    return new Date(dateStr);
+  };
+
   const filterTransactionsByPeriod = (period) => {
     return transactions.filter(tx => {
       if (!tx.date) return false;
-      const txDate = new Date(tx.date);
+      const txDate = parseLocalDate(tx.date);
+      if (!txDate || isNaN(txDate.getTime())) return false;
 
       switch (comparisonMode) {
         case 'day':
-          return tx.date === period;
+          // Compare as YYYY-MM-DD strings
+          const txDateStr = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}-${String(txDate.getDate()).padStart(2, '0')}`;
+          return txDateStr === period;
         case 'week':
           const [year, weekStr] = period.split('-W');
           const weekNum = parseInt(weekStr);

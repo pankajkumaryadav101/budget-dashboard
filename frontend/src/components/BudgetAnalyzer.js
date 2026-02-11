@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 
 const EXPENSES_KEY = 'monthly_expenses_v1';
+const TRANSACTIONS_KEY = 'transactions_v1';
 const SALARY_KEY = 'user_salary_v1';
 const ANNUAL_SALARY_KEY = 'user_annual_salary_v1';
 const BUDGET_KEY = 'user_budget_v1';
@@ -91,29 +92,68 @@ export default function BudgetAnalyzer() {
       localStorage.setItem(ANNUAL_SALARY_KEY, annualVal);
     }
 
-    localStorage.setItem(SALARY_KEY, monthlySal);
-    localStorage.setItem(BUDGET_KEY, budget || monthlySal);
+    // Save salary with currency info
+    localStorage.setItem(SALARY_KEY, JSON.stringify({
+      amount: parseFloat(monthlySal) || 0,
+      currency: settings.currency
+    }));
+
+    // Save budget amount
+    const budgetAmount = parseFloat(budget) || parseFloat(monthlySal) || 0;
+    localStorage.setItem(BUDGET_KEY, budgetAmount.toString());
+
     localStorage.setItem(SALARY_TYPE_KEY, salaryType);
     setIsEditing(false);
     compute(monthlySal, budget || monthlySal);
   };
 
-  function compute(sal = salary, bud = budget) {
-    let stored = [];
-    try {
-      stored = JSON.parse(localStorage.getItem(EXPENSES_KEY) || '[]');
-    } catch (err) {
-      stored = [];
+  // Parse date string properly to avoid timezone issues
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return null;
+    if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
     }
+    return new Date(dateStr);
+  };
+
+  function compute(sal = salary, bud = budget) {
+    // Load from both sources
+    let monthlyExp = [];
+    let transactions = [];
+    try {
+      monthlyExp = JSON.parse(localStorage.getItem(EXPENSES_KEY) || '[]');
+      transactions = JSON.parse(localStorage.getItem(TRANSACTIONS_KEY) || '[]');
+    } catch (err) {
+      monthlyExp = [];
+      transactions = [];
+    }
+
+    // Combine and dedupe by ID
+    const allExpenses = [...transactions, ...monthlyExp];
+    const seenIds = new Set();
+    const stored = allExpenses.filter(e => {
+      if (!e.id) return true;
+      if (seenIds.has(e.id)) return false;
+      seenIds.add(e.id);
+      return true;
+    });
 
     // Get current month expenses
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
 
     const thisMonthExpenses = stored.filter(e => {
-      if (!e.date) return true;
-      const d = new Date(e.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      const rawDate = e.date || e.transactionDate || e.createdAt;
+      if (!rawDate) return false;
+      const d = parseLocalDate(rawDate);
+      if (!d || isNaN(d.getTime())) return false;
+
+      // Only count expenses (not income)
+      const isExpense = !e.type || String(e.type).toUpperCase() === 'EXPENSE';
+      const isExpenseTxType = !e.transactionType || String(e.transactionType).toUpperCase() === 'EXPENSE';
+
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear && isExpense && isExpenseTxType;
     });
 
     // Calculate total with currency conversion
