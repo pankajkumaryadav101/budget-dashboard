@@ -118,6 +118,16 @@ export default function TaxReminders() {
   const [taxEstimate, setTaxEstimate] = useState(null);
   const [yearlyReminders, setYearlyReminders] = useState([]);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [slabSortField, setSlabSortField] = useState('min');
+  const [slabSortDir, setSlabSortDir] = useState('asc');
+  const [w2Data, setW2Data] = useState(null);
+  const [adjustments, setAdjustments] = useState({
+    childTaxCredit: 0,
+    dependentCare: 0,
+    hsa: 0,
+    four01k: 0,
+    insurance: 0,
+  });
 
   const isUSA = settings.country === 'USA';
   const taxDeadlines = isUSA ? USA_TAX_DEADLINES : INDIA_TAX_DEADLINES;
@@ -163,7 +173,7 @@ export default function TaxReminders() {
     if (isUSA) {
       // USA Tax Calculation
       const regime = USA_TAX_RULES[selectedRegime];
-      const taxableIncome = Math.max(0, income - regime.standardDeduction);
+      const taxableIncome = Math.max(0, income - regime.standardDeduction - adjustments.hsa - adjustments.four01k - adjustments.insurance);
 
       let tax = 0;
       let previousMax = 0;
@@ -193,7 +203,7 @@ export default function TaxReminders() {
     } else {
       // India Tax Calculation
       const regime = INDIA_TAX_RULES.regime[selectedRegime];
-      const taxableIncome = Math.max(0, income - regime.standardDeduction);
+      const taxableIncome = Math.max(0, income - regime.standardDeduction - adjustments.hsa - adjustments.four01k - adjustments.insurance);
 
       let tax = 0;
       let previousMax = 0;
@@ -214,7 +224,11 @@ export default function TaxReminders() {
 
     // Add 4% Health & Education Cess
     const cess = tax * 0.04;
-    const totalTax = tax + cess;
+    const totalTaxBeforeCredits = tax + cess;
+
+    // Apply credits (basic support per user request)
+    const credits = (adjustments.childTaxCredit || 0) + (adjustments.dependentCare || 0);
+    const totalTax = Math.max(0, totalTaxBeforeCredits - credits);
 
     setTaxEstimate({
       grossIncome: income,
@@ -222,6 +236,7 @@ export default function TaxReminders() {
       taxableIncome,
       baseTax: tax,
       cess,
+      credits,
       totalTax,
       monthlyTax: totalTax / 12,
       effectiveRate: income > 0 ? ((totalTax / income) * 100).toFixed(2) : 0
@@ -258,6 +273,69 @@ export default function TaxReminders() {
       return USA_TAX_RULES[selectedRegime]?.slabs || [];
     }
     return INDIA_TAX_RULES.regime[selectedRegime]?.slabs || [];
+  };
+
+  // Sort slabs by field and direction
+  const sortSlabs = (slabs) => {
+    const direction = slabSortDir === 'asc' ? 1 : -1;
+    return [...slabs].sort((a, b) => {
+      if (a[slabSortField] < b[slabSortField]) return -1 * direction;
+      if (a[slabSortField] > b[slabSortField]) return 1 * direction;
+      return 0;
+    });
+  };
+
+  const sortedSlabs = sortSlabs(getCurrentSlabs());
+
+  const handleSlabSort = (field) => {
+    if (slabSortField === field) {
+      setSlabSortDir(slabSortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSlabSortField(field);
+      setSlabSortDir('asc');
+    }
+  };
+
+  const renderSlabSortIcon = (field) => {
+    if (slabSortField !== field) return '⇅';
+    return slabSortDir === 'asc' ? '↑' : '↓';
+  };
+
+  const handleW2Upload = (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result || '';
+      // Lightweight regex-based W-2 parser (best effort)
+      const parseBox = (label) => {
+        const match = text.match(new RegExp(`${label}[^0-9]*([0-9,.]+)`, 'i'));
+        return match ? parseFloat(match[1].replace(/,/g, '')) || 0 : 0;
+      };
+
+      const wages = parseBox('Box\s*1');
+      const federalWithheld = parseBox('Box\s*2');
+      const socialSecurityWages = parseBox('Box\s*3');
+      const medicareWages = parseBox('Box\s*5');
+
+      // Box 12 codes
+      const parseCode = (code) => {
+        const regex = new RegExp(`12\s*${code}[^0-9]*([0-9,.]+)`, 'i');
+        const m = text.match(regex);
+        return m ? parseFloat(m[1].replace(/,/g, '')) || 0 : 0;
+      };
+      const four01k = parseCode('D'); // 401(k)
+      const hsa = parseCode('W');
+      const insurance = parseCode('DD'); // employer health coverage
+
+      setW2Data({ wages, federalWithheld, socialSecurityWages, medicareWages, four01k, hsa, insurance });
+      setAnnualIncome(wages ? wages.toString() : '');
+      setAdjustments((prev) => ({ ...prev, four01k, hsa, insurance }));
+    };
+    reader.readAsText(file);
+  };
+
+  const handleAdjustmentChange = (field, value) => {
+    setAdjustments((prev) => ({ ...prev, [field]: parseFloat(value) || 0 }));
   };
 
   return (
@@ -313,6 +391,20 @@ export default function TaxReminders() {
                 />
               </div>
               <div className="col-md-6">
+                <label className="form-label small">Upload W-2 (text / PDF copy-paste)</label>
+                <input
+                  type="file"
+                  className="form-control"
+                  accept=".txt,.json,.csv,.pdf"
+                  onChange={(e) => handleW2Upload(e.target.files?.[0])}
+                />
+                {w2Data && (
+                  <small className="text-muted d-block mt-1">
+                    Parsed: Wages {settings.currencySymbol}{w2Data.wages?.toLocaleString() || 0}, 401k {settings.currencySymbol}{w2Data.four01k?.toLocaleString() || 0}, HSA {settings.currencySymbol}{w2Data.hsa?.toLocaleString() || 0}, Insurance {settings.currencySymbol}{w2Data.insurance?.toLocaleString() || 0}
+                  </small>
+                )}
+              </div>
+              <div className="col-md-6">
                 <label className="form-label small">{isUSA ? 'Filing Status' : 'Tax Regime'}</label>
                 <select
                   className="form-select"
@@ -331,6 +423,32 @@ export default function TaxReminders() {
                     </>
                   )}
                 </select>
+              </div>
+              <div className="col-md-6">
+                <label className="form-label small">Adjustments & Credits</label>
+                <div className="row g-2">
+                  <div className="col-6">
+                    <input type="number" className="form-control" placeholder="Child Tax Credit" value={adjustments.childTaxCredit}
+                      onChange={(e) => handleAdjustmentChange('childTaxCredit', e.target.value)} />
+                  </div>
+                  <div className="col-6">
+                    <input type="number" className="form-control" placeholder="Dependent Care Credit" value={adjustments.dependentCare}
+                      onChange={(e) => handleAdjustmentChange('dependentCare', e.target.value)} />
+                  </div>
+                  <div className="col-4">
+                    <input type="number" className="form-control" placeholder="HSA" value={adjustments.hsa}
+                      onChange={(e) => handleAdjustmentChange('hsa', e.target.value)} />
+                  </div>
+                  <div className="col-4">
+                    <input type="number" className="form-control" placeholder="401(k)" value={adjustments.four01k}
+                      onChange={(e) => handleAdjustmentChange('four01k', e.target.value)} />
+                  </div>
+                  <div className="col-4">
+                    <input type="number" className="form-control" placeholder="Insurance" value={adjustments.insurance}
+                      onChange={(e) => handleAdjustmentChange('insurance', e.target.value)} />
+                  </div>
+                </div>
+                <small className="text-muted d-block mt-1">W-2 Box 12 codes auto-fill when present (D=401k, W=HSA, DD=Insurance).</small>
               </div>
             </div>
             <button className="btn btn-danger w-100 mb-3" onClick={calculateTax}>
@@ -360,12 +478,9 @@ export default function TaxReminders() {
                 <hr />
                 <small className="text-muted">
                   {isUSA ? (
-                    <>Standard deduction of ${selectedRegime === 'single' ? '14,600' : '29,200'} applied. State taxes not included.</>
+                    <>Standard deduction of ${selectedRegime === 'single' ? '14,600' : '29,200'} applied. State taxes not included. Credits applied: Child/Dependent Care. W-2 deductions: HSA, 401k, Insurance.</>
                   ) : (
-                    <>
-                      Includes 4% Health & Education Cess. Standard deduction of ₹{selectedRegime === 'new' ? '75,000' : '50,000'} applied.
-                      {selectedRegime === 'new' && taxEstimate.taxableIncome <= 1200000 && ' Rebate u/s 87A applied.'}
-                    </>
+                    <>Includes 4% Health & Education Cess. Standard deduction of ₹{selectedRegime === 'new' ? '75,000' : '50,000'} applied. Credits: Child/Dependent Care. Deductions: HSA, 401k, Insurance.</>
                   )}
                 </small>
               </div>
@@ -386,12 +501,12 @@ export default function TaxReminders() {
           <table className="table table-sm mb-0">
             <thead>
               <tr>
-                <th>Income Range</th>
-                <th className="text-end">Rate</th>
+                <th role="button" onClick={() => handleSlabSort('min')}>Income Range {renderSlabSortIcon('min')}</th>
+                <th className="text-end" role="button" onClick={() => handleSlabSort('rate')}>Rate {renderSlabSortIcon('rate')}</th>
               </tr>
             </thead>
             <tbody>
-              {getCurrentSlabs().map((slab, idx) => (
+              {sortedSlabs.map((slab, idx) => (
                 <tr key={idx}>
                   <td>
                     {settings.currencySymbol}{slab.min.toLocaleString()} - {slab.max === Infinity ? 'Above' : `${settings.currencySymbol}${slab.max.toLocaleString()}`}
