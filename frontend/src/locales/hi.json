@@ -13,5 +13,21 @@
   "from": "से",
   "to": "को",
   "convert": "बदलें",
-  "search": "खोजें"
+  "search": "खोजें",
+  "netWorth": "कुल संपत्ति",
+  "income": "आय",
+  "expenses": "खर्च",
+  "balance": "शेष राशि",
+  "whereIsIt": "कहाँ है?",
+  "searchAssets": "संपत्ति, स्थान खोजें...",
+  "addAsset": "नई संपत्ति जोड़ें",
+  "monthlyGraph": "मासिक अवलोकन",
+  "addExpense": "खर्च जोड़ें",
+  "overview": "अवलोकन",
+  "assets": "संपत्तियाँ",
+  "budget": "बजट",
+  "analytics": "विश्लेषण",
+  "verify": "स्थान सत्यापित करें",
+  "stale": "अपडेट जरूरी",
+  "lastVerified": "अंतिम सत्यापन"
 }

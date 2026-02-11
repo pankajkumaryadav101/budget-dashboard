@@ -13,5 +13,21 @@
   "from": "From",
   "to": "To",
   "convert": "Convert",
-  "search": "Search"
+  "search": "Search",
+  "netWorth": "Total Net Worth",
+  "income": "Income",
+  "expenses": "Expenses",
+  "balance": "Balance",
+  "whereIsIt": "Where Is It?",
+  "searchAssets": "Search assets, locations...",
+  "addAsset": "Add New Asset",
+  "monthlyGraph": "Monthly Overview",
+  "addExpense": "Add Expense",
+  "overview": "Overview",
+  "assets": "Assets",
+  "budget": "Budget",
+  "analytics": "Analytics",
+  "verify": "Verify Location",
+  "stale": "Needs Update",
+  "lastVerified": "Last Verified"
 }

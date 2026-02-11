@@ -2,14 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { getRates, getSymbols, convert } from "../api/api";
 import { useTranslation } from "react-i18next";
 
-export default function CurrencyRatesTable() {
+export default function CurrencyRatesTable({ compact = false }) {
   const { t } = useTranslation();
   const [base, setBase] = useState("USD");
   const [rates, setRates] = useState({});
   const [symbols, setSymbols] = useState({});
   const [filter, setFilter] = useState("");
   const [from, setFrom] = useState("USD");
-  const [to, setTo] = useState("EUR");
+  const [to, setTo] = useState("INR");
   const [amount, setAmount] = useState(1);
   const [converted, setConverted] = useState(null);
 
@@ -34,10 +34,19 @@ export default function CurrencyRatesTable() {
   }, [base]);
 
   const rows = useMemo(() => {
-    return Object.entries(rates)
+    // For compact mode, show common currencies first
+    const priorityCurrencies = ['INR', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD'];
+    const entries = Object.entries(rates);
+
+    if (compact) {
+      const priority = entries.filter(([code]) => priorityCurrencies.includes(code));
+      return priority.slice(0, 5);
+    }
+
+    return entries
       .filter(([code]) => code.toLowerCase().includes(filter.toLowerCase()))
-      .slice(0, 500);
-  }, [rates, filter]);
+      .slice(0, 10);
+  }, [rates, filter, compact]);
 
   const doConvert = async () => {
     try {
@@ -48,53 +57,118 @@ export default function CurrencyRatesTable() {
     }
   };
 
+  // Compact view for overview
+  if (compact) {
+    return (
+      <div>
+        <div className="d-flex flex-column gap-2">
+          {rows.map(([code, rate]) => (
+            <div key={code} className="d-flex justify-content-between align-items-center">
+              <span>
+                <span className="badge bg-secondary me-2">{code}</span>
+                <small className="text-muted">{symbols[code]?.substring(0, 15) || ''}</small>
+              </span>
+              <strong>{Number(rate).toFixed(2)}</strong>
+            </div>
+          ))}
+        </div>
+        <small className="text-muted d-block mt-2">Base: {base}</small>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div style={{ marginBottom: 8 }}>
-        <label>{t("search")}: </label>
-        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="USD, EUR, INR..." />
-        <label style={{ marginLeft: 8 }}>Base:</label>
-        <select value={base} onChange={(e) => setBase(e.target.value)}>
-          <option value={base}>{base}</option>
-          <option value="USD">USD</option>
-          <option value="EUR">EUR</option>
-          <option value="INR">INR</option>
-          <option value="JPY">JPY</option>
-        </select>
+      {/* Search and Base Currency */}
+      <div className="row g-2 mb-3">
+        <div className="col-8">
+          <input
+            type="text"
+            className="form-control form-control-sm"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search: USD, EUR, INR..."
+          />
+        </div>
+        <div className="col-4">
+          <select
+            className="form-select form-select-sm"
+            value={base}
+            onChange={(e) => setBase(e.target.value)}
+          >
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="INR">INR</option>
+            <option value="GBP">GBP</option>
+            <option value="JPY">JPY</option>
+          </select>
+        </div>
       </div>
 
-      <table className="rates-table">
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Name</th>
-            <th>Rate (base {base})</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(([code, rate]) => (
-            <tr key={code}>
-              <td>{code}</td>
-              <td>{symbols[code] || "-"}</td>
-              <td>{rate}</td>
+      {/* Rates Table */}
+      <div className="table-responsive" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+        <table className="table table-sm table-hover mb-0">
+          <thead className="sticky-top">
+            <tr>
+              <th>Code</th>
+              <th>Name</th>
+              <th className="text-end">Rate</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map(([code, rate]) => (
+              <tr key={code}>
+                <td><span className="badge bg-secondary">{code}</span></td>
+                <td className="text-truncate" style={{ maxWidth: '100px' }}>{symbols[code] || "-"}</td>
+                <td className="text-end fw-bold">{Number(rate).toFixed(4)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      <div style={{ marginTop: 12 }} className="convert">
-        <div>
-          <label>{t("from")}:</label>
-          <input value={from} onChange={(e) => setFrom(e.target.value.toUpperCase())} />
-          <label>{t("to")}:</label>
-          <input value={to} onChange={(e) => setTo(e.target.value.toUpperCase())} />
-          <label>{t("amount")}:</label>
-          <input value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <button onClick={doConvert}>{t("convert")}</button>
+      {/* Currency Converter */}
+      <div className="mt-3 pt-3 border-top">
+        <small className="text-muted d-block mb-2">Quick Convert</small>
+        <div className="row g-2">
+          <div className="col-3">
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              value={from}
+              onChange={(e) => setFrom(e.target.value.toUpperCase())}
+              placeholder="From"
+            />
+          </div>
+          <div className="col-3">
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              value={to}
+              onChange={(e) => setTo(e.target.value.toUpperCase())}
+              placeholder="To"
+            />
+          </div>
+          <div className="col-3">
+            <input
+              type="number"
+              className="form-control form-control-sm"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Amount"
+            />
+          </div>
+          <div className="col-3">
+            <button onClick={doConvert} className="btn btn-danger btn-sm w-100">
+              Convert
+            </button>
+          </div>
         </div>
-        <div>
-          {converted !== null && <div>Result: {converted}</div>}
-        </div>
+        {converted !== null && (
+          <div className="alert alert-success py-2 mt-2 mb-0">
+            <strong>Result:</strong> {typeof converted === 'number' ? converted.toFixed(2) : converted}
+          </div>
+        )}
       </div>
     </div>
   );

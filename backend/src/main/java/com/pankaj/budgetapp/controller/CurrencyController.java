@@ -19,7 +19,17 @@ public class CurrencyController {
 
     @GetMapping("/symbols")
     public ResponseEntity<Map<String, String>> getSymbols() {
-        return ResponseEntity.ok(currencyService.getSymbols());
+        Map<String, String> symbols = currencyService.getSymbols();
+        if (symbols == null || symbols.isEmpty()) {
+            // Fallback: return a few demo symbols
+            symbols = Map.of(
+                "USD", "US Dollar",
+                "INR", "Indian Rupee",
+                "EUR", "Euro",
+                "GBP", "British Pound"
+            );
+        }
+        return ResponseEntity.ok(symbols);
     }
 
     @GetMapping("/rates")
@@ -37,5 +47,12 @@ public class CurrencyController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
+    }
+
+    @GetMapping("/monthly-data")
+    public ResponseEntity<?> getMonthlyData() {
+        // Mock data: 12 months of expenses
+        double[] totalExpenses = {1200, 1100, 1300, 1250, 1400, 1350, 1200, 1150, 1500, 1450, 1600, 1550};
+        return ResponseEntity.ok(Map.of("totalExpenses", totalExpenses));
     }
 }

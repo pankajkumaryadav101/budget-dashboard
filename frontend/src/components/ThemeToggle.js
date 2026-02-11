@@ -1,13 +1,15 @@
 import React from "react";
 import { useTheme } from "../contexts/ThemeContext";
-import { useTranslation } from "react-i18next";
 
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
-  const { t } = useTranslation();
   return (
-    <button className="theme-toggle" onClick={toggleTheme}>
-      {t("theme")}: {theme}
+    <button
+      className="btn btn-outline-secondary btn-sm"
+      onClick={toggleTheme}
+      title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+    >
+      {theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
     </button>
   );
 }

@@ -6,7 +6,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -94,6 +94,7 @@ public class CurrencyService {
 
     private void fetchLatestRates(String baseCurrency) {
         try {
+            // Use exchangerate.host as primary (free, no API key required)
             String url = "https://api.exchangerate.host/latest?base=" + baseCurrency.toUpperCase();
             String resp = rest.getForObject(url, String.class);
             JsonNode root = mapper.readTree(resp);
@@ -107,7 +108,26 @@ public class CurrencyService {
             this.base = baseCurrency.toUpperCase();
             this.lastFetched = System.currentTimeMillis();
         } catch (Exception ex) {
-            System.err.println("Failed to fetch rates: " + ex.getMessage());
+            System.err.println("Failed to fetch rates from exchangerate.host: " + ex.getMessage());
+            // Fallback: try frankfurter.app (also free, no API key)
+            try {
+                String url = "https://api.frankfurter.app/latest?from=" + baseCurrency.toUpperCase();
+                String resp = rest.getForObject(url, String.class);
+                JsonNode root = mapper.readTree(resp);
+                JsonNode ratesNode = root.path("rates");
+                Map<String, Double> map = new HashMap<>();
+                ratesNode.fieldNames().forEachRemaining(code -> {
+                    double v = ratesNode.path(code).asDouble();
+                    map.put(code, v);
+                });
+                // Frankfurter does not include the base currency itself, so add it as 1.0
+                map.put(baseCurrency.toUpperCase(), 1.0);
+                this.latestRates = map;
+                this.base = baseCurrency.toUpperCase();
+                this.lastFetched = System.currentTimeMillis();
+            } catch (Exception ex2) {
+                System.err.println("Failed to fetch rates from frankfurter.app: " + ex2.getMessage());
+            }
         }
     }
 }
