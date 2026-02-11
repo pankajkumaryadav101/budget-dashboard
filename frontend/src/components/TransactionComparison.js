@@ -333,21 +333,21 @@ export default function TransactionComparison() {
           {/* Summary Cards */}
           <div className="row g-3 mb-4">
             <div className="col-4">
-              <div className="p-3 rounded text-center" style={{ background: 'rgba(229, 57, 53, 0.1)' }}>
+              <div className="p-3 rounded text-center h-100 d-flex flex-column justify-content-center" style={{ background: 'rgba(229, 57, 53, 0.1)' }}>
                 <small className="text-muted d-block">{formatPeriodLabel(selectedPeriod1)}</small>
                 <strong className="fs-5 text-danger">{settings.currencySymbol}{comparisonData.period1Total.toLocaleString()}</strong>
                 <small className="text-muted d-block">{comparisonData.period1Count} transactions</small>
               </div>
             </div>
             <div className="col-4">
-              <div className="p-3 rounded text-center" style={{ background: 'var(--bg-secondary)' }}>
+              <div className="p-3 rounded text-center h-100 d-flex flex-column justify-content-center" style={{ background: 'var(--bg-secondary)' }}>
                 <small className="text-muted d-block">{formatPeriodLabel(selectedPeriod2)}</small>
                 <strong className="fs-5">{settings.currencySymbol}{comparisonData.period2Total.toLocaleString()}</strong>
                 <small className="text-muted d-block">{comparisonData.period2Count} transactions</small>
               </div>
             </div>
             <div className="col-4">
-              <div className="p-3 rounded text-center" style={{ background: comparisonData.difference > 0 ? 'rgba(244, 67, 54, 0.1)' : 'rgba(76, 175, 80, 0.1)' }}>
+              <div className="p-3 rounded text-center h-100 d-flex flex-column justify-content-center" style={{ background: comparisonData.difference > 0 ? 'rgba(244, 67, 54, 0.1)' : 'rgba(76, 175, 80, 0.1)' }}>
                 <small className="text-muted d-block">Difference</small>
                 <strong className={`fs-5 ${comparisonData.difference > 0 ? 'text-danger' : 'text-success'}`}>
                   {comparisonData.difference > 0 ? '+' : ''}{settings.currencySymbol}{comparisonData.difference.toLocaleString()}

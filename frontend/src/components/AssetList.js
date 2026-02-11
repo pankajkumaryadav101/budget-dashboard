@@ -23,6 +23,7 @@ export default function AssetList({ onEdit, refreshTrigger }) {
   const { t } = useTranslation();
   const { settings, convertCurrency } = useSettings();
   const [assets, setAssets] = useState([]);
+  const [allAssets, setAllAssets] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('ALL');
@@ -68,6 +69,7 @@ export default function AssetList({ onEdit, refreshTrigger }) {
       }
 
       setAssets(uniqueAssets);
+      setAllAssets(uniqueAssets);
       await fetchMarketPrices(uniqueAssets);
     } catch (err) {
       console.error('Failed to load assets:', err);
@@ -162,19 +164,16 @@ export default function AssetList({ onEdit, refreshTrigger }) {
     setSearchQuery(query);
 
     if (query.length > 2) {
-      try {
-        const results = await searchAssets(query);
-        setAssets(results);
-      } catch (err) {
-        const localAssets = JSON.parse(localStorage.getItem('assets_v1') || '[]');
-        const filtered = localAssets.filter(a =>
-          a.name?.toLowerCase().includes(query.toLowerCase()) ||
-          a.storageLocation?.toLowerCase().includes(query.toLowerCase())
-        );
-        setAssets(filtered);
-      }
+      const q = query.toLowerCase();
+      const source = allAssets.length ? allAssets : assets;
+      const filteredLocal = source.filter(a =>
+        (a.name || '').toLowerCase().includes(q) ||
+        (a.storageLocation || '').toLowerCase().includes(q) ||
+        (a.type || '').toLowerCase().includes(q)
+      );
+      setAssets(deduplicateAssets(filteredLocal));
     } else if (query.length === 0) {
-      loadAssets();
+      setAssets(allAssets);
     }
   };
 
@@ -211,7 +210,9 @@ export default function AssetList({ onEdit, refreshTrigger }) {
     localStorage.setItem('assets_v1', JSON.stringify(updated));
 
     // Update state with deduplicated list
-    setAssets(deduplicateAssets(updated));
+    const cleaned = deduplicateAssets(updated);
+    setAssets(cleaned);
+    setAllAssets(cleaned);
   };
 
   const formatCurrency = (amount) => {
