@@ -433,7 +433,7 @@ export default function DocumentStorage() {
             onClick={() => setFilterType('all')}
           >
             📁 All
-            <span className="badge bg-light text-dark ms-2">{documents.length}</span>
+            <span className="badge ms-2" style={{ backgroundColor: filterType === 'all' ? '#ffffff' : 'var(--bg-secondary)', color: filterType === 'all' ? 'var(--accent-color)' : 'var(--text-primary)' }}>{documents.length}</span>
           </button>
 
           {/* Category Tabs - Only show if documents exist */}
@@ -447,7 +447,7 @@ export default function DocumentStorage() {
                 onClick={() => setFilterType(type.id)}
               >
                 {type.icon} {type.name}
-                <span className="badge bg-light text-dark ms-2">{count}</span>
+                <span className="badge ms-2" style={{ backgroundColor: filterType === type.id ? '#ffffff' : 'var(--bg-secondary)', color: filterType === type.id ? 'var(--accent-color)' : 'var(--text-primary)' }}>{count}</span>
               </button>
             );
           })}
@@ -541,11 +541,12 @@ export default function DocumentStorage() {
                           </div>
                         </div>
                         <div className="text-end">
-                          {(doc.storedFileName || doc.imageData) && <span className="badge bg-info me-1">📎</span>}
-                          {expired && <span className="badge bg-danger">Expired</span>}
-                          {expiringSoon && <span className="badge bg-warning text-dark">Expiring Soon</span>}
+                          {(doc.storedFileName || doc.imageData) && <span className="badge" style={{ backgroundColor: 'var(--accent-color)', color: '#ffffff' }}>📎</span>}
+                          {expired && <span className="badge ms-1" style={{ backgroundColor: 'var(--danger-color)', color: '#ffffff' }}>Expired</span>}
+                          {expiringSoon && <span className="badge ms-1" style={{ backgroundColor: 'var(--warning-color)', color: '#000000' }}>Expiring Soon</span>}
                           <button
-                            className="btn btn-link btn-sm text-danger p-0 ms-2"
+                            className="btn btn-link btn-sm p-0 ms-2"
+                            style={{ color: 'var(--danger-color)' }}
                             onClick={(e) => { e.stopPropagation(); deleteDocument(doc.id); }}
                           >
                             🗑️

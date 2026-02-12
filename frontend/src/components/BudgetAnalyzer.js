@@ -337,21 +337,21 @@ export default function BudgetAnalyzer() {
       {/* Main Stats */}
       <div className="row g-3 mb-3">
         <div className="col-6">
-          <div className="p-3 rounded border text-center">
-            <small className="text-muted d-block">Spent This Month</small>
-            <span className="fs-4 fw-bold text-danger">
+          <div className="p-3 rounded border text-center h-100 d-flex flex-column justify-content-center" style={{ minHeight: '120px' }}>
+            <small style={{ color: 'var(--text-muted)' }} className="d-block">Spent This Month</small>
+            <span className="fs-4 fw-bold" style={{ color: 'var(--danger-color)' }}>
               {settings.currencySymbol}{analysis.totalExpenses.toLocaleString()}
             </span>
-            <small className="text-muted d-block">{analysis.transactionCount} transactions</small>
+            <small style={{ color: 'var(--text-muted)' }} className="d-block">{analysis.transactionCount} transactions</small>
           </div>
         </div>
         <div className="col-6">
-          <div className="p-3 rounded border text-center">
-            <small className="text-muted d-block">Savings</small>
-            <span className={`fs-4 fw-bold ${analysis.monthlySavings >= 0 ? 'text-success' : 'text-danger'}`}>
+          <div className="p-3 rounded border text-center h-100 d-flex flex-column justify-content-center" style={{ minHeight: '120px' }}>
+            <small style={{ color: 'var(--text-muted)' }} className="d-block">Savings</small>
+            <span className={`fs-4 fw-bold`} style={{ color: analysis.monthlySavings >= 0 ? 'var(--success-color)' : 'var(--danger-color)' }}>
               {settings.currencySymbol}{analysis.monthlySavings.toLocaleString()}
             </span>
-            <small className={analysis.savingsRate >= 20 ? 'text-success' : 'text-warning'}>
+            <small style={{ color: analysis.savingsRate >= 20 ? 'var(--success-color)' : 'var(--warning-color)' }} className="d-block">
               {analysis.savingsRate}% of income
             </small>
           </div>
