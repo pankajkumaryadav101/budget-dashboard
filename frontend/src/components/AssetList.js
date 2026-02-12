@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../contexts/SettingsContext';
 import { getAllAssets, searchAssets, verifyAssetLocation, deleteAsset } from '../api/api';
 import { getGoldPrice, getCarValue, getRealEstateValue, calculateGoldValue, getLandPrice, clearMarketPriceCache } from '../api/marketPriceService';
+import { useDebounce } from '../hooks/useCustomHooks';
 
 // Asset type configurations
 const ASSET_CONFIGS = {
@@ -159,12 +160,13 @@ export default function AssetList({ onEdit, refreshTrigger }) {
     return null;
   };
 
-  const handleSearch = async (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
+  // Debounced search query
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-    if (query.length > 2) {
-      const q = query.toLowerCase();
+  // Effect to filter assets when debounced search changes
+  useEffect(() => {
+    if (debouncedSearchQuery.length > 2) {
+      const q = debouncedSearchQuery.toLowerCase();
       const source = allAssets.length ? allAssets : assets;
       const filteredLocal = source.filter(a =>
         (a.name || '').toLowerCase().includes(q) ||
@@ -172,9 +174,13 @@ export default function AssetList({ onEdit, refreshTrigger }) {
         (a.type || '').toLowerCase().includes(q)
       );
       setAssets(deduplicateAssets(filteredLocal));
-    } else if (query.length === 0) {
+    } else if (debouncedSearchQuery.length === 0 && allAssets.length > 0) {
       setAssets(allAssets);
     }
+  }, [debouncedSearchQuery, allAssets]);
+
+  const handleSearch = (e) => {
+    setSearchQuery(e.target.value);
   };
 
   const handleVerify = async (id) => {

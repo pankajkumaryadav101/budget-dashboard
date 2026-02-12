@@ -395,3 +395,122 @@ code {
   background-color: var(--bg-card) !important;
   border-color: var(--border-color) !important;
 }
+
+/* ============ DATE PICKER / CALENDAR STYLES ============ */
+
+/* Chrome, Edge, Safari date picker */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+  cursor: pointer;
+}
+
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}
+
+/* Date input styling */
+input[type="date"] {
+  color-scheme: dark;
+}
+
+[data-theme="light"] input[type="date"] {
+  color-scheme: light;
+}
+
+/* Firefox date picker (limited support) */
+input[type="date"]::-moz-calendar-picker-indicator {
+  filter: invert(0.5);
+}
+
+/* General calendar popup override using accent color */
+::-webkit-datetime-edit {
+  color: var(--text-primary);
+}
+
+::-webkit-datetime-edit-fields-wrapper {
+  color: var(--text-primary);
+}
+
+::-webkit-datetime-edit-text {
+  color: var(--text-secondary);
+}
+
+::-webkit-datetime-edit-month-field,
+::-webkit-datetime-edit-day-field,
+::-webkit-datetime-edit-year-field {
+  color: var(--text-primary);
+}
+
+/* Custom CSS variables for calendar (where supported) */
+@supports (accent-color: auto) {
+  input[type="date"] {
+    accent-color: var(--accent-color);
+  }
+
+  input[type="date"]:focus {
+    accent-color: var(--accent-color);
+  }
+}
+
+/* Style the date input to match theme */
+input[type="date"] {
+  background-color: var(--input-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  color: var(--text-primary) !important;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+}
+
+input[type="date"]:focus {
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+  outline: none;
+}
+
+input[type="date"]:hover {
+  border-color: var(--accent-color) !important;
+}
+
+/* Time input styling */
+input[type="time"] {
+  background-color: var(--input-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  color: var(--text-primary) !important;
+  accent-color: var(--accent-color);
+}
+
+input[type="time"]:focus {
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+  cursor: pointer;
+}
+
+[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}
+
+/* Month input styling */
+input[type="month"] {
+  background-color: var(--input-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  color: var(--text-primary) !important;
+  accent-color: var(--accent-color);
+}
+
+input[type="month"]:focus {
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+}
+
+input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.5);
+  cursor: pointer;
+}
+
+[data-theme="dark"] input[type="month"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}

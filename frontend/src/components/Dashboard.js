@@ -14,6 +14,15 @@ import TaxReminders from "./TaxReminders";
 import ExpenseComparisonChart from "./ExpenseComparisonChart";
 import SalaryExpenseChart from "./SalaryExpenseChart";
 import TransactionComparison from "./TransactionComparison";
+import DataBackup from "./DataBackup";
+import SavingsGoals from "./SavingsGoals";
+import NotificationCenter from "./NotificationCenter";
+import ReportGenerator from "./ReportGenerator";
+import MultiCurrencyPortfolio from "./MultiCurrencyPortfolio";
+import DocumentStorage from "./DocumentStorage";
+import FamilyMode from "./FamilyMode";
+import InvestmentTracker from "./InvestmentTracker";
+import ThemeScheduler from "./ThemeScheduler";
 import { useTranslation } from "react-i18next";
 import { useSettings } from "../contexts/SettingsContext";
 import { getDashboardSummary } from "../api/api";
@@ -403,6 +412,38 @@ export default function Dashboard() {
             onClick={() => setActiveTab('analytics')}
           >
             📈 Analytics
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            className={`nav-link ${activeTab === 'goals' ? 'active bg-danger' : ''}`}
+            onClick={() => setActiveTab('goals')}
+          >
+            🎯 Goals
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            className={`nav-link ${activeTab === 'investments' ? 'active bg-danger' : ''}`}
+            onClick={() => setActiveTab('investments')}
+          >
+            📈 Invest
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            className={`nav-link ${activeTab === 'documents' ? 'active bg-danger' : ''}`}
+            onClick={() => setActiveTab('documents')}
+          >
+            📎 Docs
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            className={`nav-link ${activeTab === 'settings' ? 'active bg-danger' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            ⚙️ Settings
           </button>
         </li>
       </ul>
@@ -919,6 +960,143 @@ export default function Dashboard() {
               <div className="card-body">
                 <h5 className="card-title border-bottom pb-2 mb-3">💱 {t("currencyRates")}</h5>
                 <CurrencyRatesTable compact={true} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ GOALS TAB ============ */}
+      {activeTab === 'goals' && (
+        <div>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h4 className="mb-0">🎯 Savings Goals</h4>
+          </div>
+          <div className="card">
+            <div className="card-body">
+              <SavingsGoals />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ INVESTMENTS TAB ============ */}
+      {activeTab === 'investments' && (
+        <div>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h4 className="mb-0">📈 Investment Portfolio</h4>
+          </div>
+          <div className="row g-4">
+            <div className="col-lg-8">
+              <div className="card">
+                <div className="card-body">
+                  <InvestmentTracker />
+                </div>
+              </div>
+            </div>
+            <div className="col-lg-4">
+              <div className="card">
+                <div className="card-body">
+                  <h5 className="card-title border-bottom pb-2 mb-3">💱 Multi-Currency View</h5>
+                  <MultiCurrencyPortfolio />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ DOCUMENTS TAB ============ */}
+      {activeTab === 'documents' && (
+        <div>
+          <div className="card">
+            <div className="card-body">
+              <DocumentStorage />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ SETTINGS TAB ============ */}
+      {activeTab === 'settings' && (
+        <div>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h4 className="mb-0">⚙️ Settings & Data</h4>
+          </div>
+          <div className="row g-4">
+            {/* Left Column */}
+            <div className="col-lg-6">
+              <DataBackup onImportComplete={handleRefresh} />
+
+              <div className="card mt-4">
+                <div className="card-body">
+                  <h5 className="card-title border-bottom pb-2 mb-3">🔔 Notifications & Alerts</h5>
+                  <NotificationCenter
+                    budgets={budgets}
+                    spentByCategory={getSpentByCategory()}
+                    recurringItems={recurringItems}
+                  />
+                </div>
+              </div>
+
+              <div className="card mt-4">
+                <div className="card-body">
+                  <h5 className="card-title border-bottom pb-2 mb-3">👥 Family Mode</h5>
+                  <FamilyMode onProfileChange={handleRefresh} />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="col-lg-6">
+              <ThemeScheduler />
+
+              <div className="card mt-4">
+                <div className="card-body">
+                  <h5 className="card-title border-bottom pb-2 mb-3">📄 Reports & Export</h5>
+                  <ReportGenerator />
+                </div>
+              </div>
+
+              <div className="card mt-4">
+                <div className="card-header bg-danger text-white">
+                  <strong>📊 App Statistics</strong>
+                </div>
+                <div className="card-body">
+                  <div className="d-flex flex-column gap-3">
+                    <div className="d-flex justify-content-between align-items-center p-2 rounded border">
+                      <span>Total Transactions</span>
+                      <span className="badge bg-secondary">{transactions.length}</span>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center p-2 rounded border">
+                      <span>Budget Categories</span>
+                      <span className="badge bg-secondary">{budgets.length}</span>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center p-2 rounded border">
+                      <span>Recurring Reminders</span>
+                      <span className="badge bg-secondary">{recurringItems.length}</span>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center p-2 rounded border">
+                      <span>Assets Tracked</span>
+                      <span className="badge bg-secondary">
+                        {JSON.parse(localStorage.getItem('assets_v1') || '[]').length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card mt-4">
+                <div className="card-header bg-danger text-white">
+                  <strong>ℹ️ About</strong>
+                </div>
+                <div className="card-body">
+                  <p className="mb-2"><strong>Budget Dashboard</strong> v1.0.0</p>
+                  <p className="text-muted small mb-0">
+                    A local-first personal finance app. All your data stays on your device -
+                    no cloud, no tracking, complete privacy.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
