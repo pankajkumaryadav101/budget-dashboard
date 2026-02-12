@@ -8,10 +8,11 @@ import java.time.LocalDateTime;
 public class UserSettings {
 
     @Id
-    private String key;
+    @Column(name = "setting_key")
+    private String settingKey;
 
-    @Column(columnDefinition = "TEXT")
-    private String value;
+    @Column(name = "setting_value", columnDefinition = "TEXT")
+    private String settingValue;
 
     private LocalDateTime updatedAt;
 
@@ -19,26 +20,26 @@ public class UserSettings {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public UserSettings(String key, String value) {
-        this.key = key;
-        this.value = value;
+    public UserSettings(String settingKey, String settingValue) {
+        this.settingKey = settingKey;
+        this.settingValue = settingValue;
         this.updatedAt = LocalDateTime.now();
     }
 
-    public String getKey() {
-        return key;
+    public String getSettingKey() {
+        return settingKey;
     }
 
-    public void setKey(String key) {
-        this.key = key;
+    public void setSettingKey(String settingKey) {
+        this.settingKey = settingKey;
     }
 
-    public String getValue() {
-        return value;
+    public String getSettingValue() {
+        return settingValue;
     }
 
-    public void setValue(String value) {
-        this.value = value;
+    public void setSettingValue(String settingValue) {
+        this.settingValue = settingValue;
         this.updatedAt = LocalDateTime.now();
     }
 

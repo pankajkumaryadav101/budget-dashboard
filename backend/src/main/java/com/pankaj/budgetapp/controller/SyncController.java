@@ -46,7 +46,7 @@ public class SyncController {
 
         // Get all settings (budgets, salary, etc.)
         Map<String, String> settings = new HashMap<>();
-        userSettingsRepository.findAll().forEach(s -> settings.put(s.getKey(), s.getValue()));
+        userSettingsRepository.findAll().forEach(s -> settings.put(s.getSettingKey(), s.getSettingValue()));
         data.put("settings", settings);
 
         data.put("syncedAt", LocalDateTime.now().toString());

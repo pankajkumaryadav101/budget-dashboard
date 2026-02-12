@@ -517,7 +517,7 @@ export default function DocumentStorage() {
         </div>
       ) : (
         <div className="row g-3">
-          <div className={selectedDoc ? 'col-md-6' : 'col-12'}>
+          <div className="col-12">
             <div className="d-flex flex-column gap-2">
               {filteredDocs.map(doc => {
                 const docType = getDocType(doc.type);
@@ -558,213 +558,238 @@ export default function DocumentStorage() {
               })}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Document Preview */}
-          {selectedDoc && (
-            <div className="col-md-6">
-              <div className="card sticky-top" style={{ top: '20px' }}>
-                <div className="card-header d-flex justify-content-between align-items-center">
-                  <strong>{editingDoc ? '✏️ Edit Document' : selectedDoc.name}</strong>
-                  <div>
-                    {!editingDoc && (
-                      <button
-                        className="btn btn-outline-secondary btn-sm me-2"
-                        onClick={() => startEditing(selectedDoc)}
-                      >
-                        ✏️ Edit
-                      </button>
+      {/* Document Preview Modal */}
+      {selectedDoc && (
+        <div
+          className="modal show d-block"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => { setSelectedDoc(null); setEditingDoc(null); }}
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="modal-content" style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-primary)', position: 'relative' }}>
+              {/* Top Right Buttons */}
+              <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 10 }} className="d-flex align-items-center gap-2">
+                {!editingDoc && (
+                  <button
+                    className="btn btn-outline-danger btn-sm"
+                    onClick={() => startEditing(selectedDoc)}
+                  >
+                    ✏️ Edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm px-2 py-1"
+                  onClick={() => { setSelectedDoc(null); setEditingDoc(null); }}
+                  style={{ lineHeight: 1, fontWeight: 'bold' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Header with Title */}
+              <div className="modal-header border-bottom" style={{ borderColor: 'var(--border-color)', paddingRight: '120px' }}>
+                <h5 className="modal-title" style={{ color: 'var(--accent-color)', fontWeight: '600' }}>
+                  {editingDoc ? '✏️ Edit Document' : selectedDoc.name}
+                </h5>
+              </div>
+              <div className="modal-body" style={{ color: 'var(--text-primary)' }}>
+                {/* File Preview - System Storage */}
+                {selectedDoc.storedFileName && (
+                  <div className="mb-3 text-center">
+                    {selectedDoc.originalFileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                      <img
+                        src={getDocumentViewUrl(selectedDoc.storedFileName)}
+                        alt={selectedDoc.name}
+                        className="img-fluid rounded border"
+                        style={{ maxHeight: '300px', width: '100%', objectFit: 'contain' }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div className="p-4 text-center border rounded" style={{ background: 'var(--bg-secondary)' }}>
+                        <span style={{ fontSize: '48px' }}>📄</span>
+                        <p className="mb-0" style={{ color: 'var(--text-primary)' }}>{selectedDoc.originalFileName}</p>
+                        <small style={{ color: 'var(--text-muted)' }}>
+                          {selectedDoc.fileSize ? `${(selectedDoc.fileSize / 1024).toFixed(1)}KB` : ''}
+                        </small>
+                      </div>
                     )}
-                    <button className="btn-close" onClick={() => { setSelectedDoc(null); setEditingDoc(null); }} />
                   </div>
-                </div>
-                <div className="card-body">
-                  {/* File Preview - System Storage */}
-                  {selectedDoc.storedFileName && (
-                    <div className="mb-3">
-                      {selectedDoc.originalFileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                        <img
-                          src={getDocumentViewUrl(selectedDoc.storedFileName)}
-                          alt={selectedDoc.name}
-                          className="img-fluid rounded border"
-                          style={{ maxHeight: '300px', width: '100%', objectFit: 'contain' }}
-                          onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                      ) : (
-                        <div className="p-4 text-center border rounded">
-                          <span style={{ fontSize: '48px' }}>📄</span>
-                          <p className="mb-0">{selectedDoc.originalFileName}</p>
-                          <small className="text-muted">
-                            {selectedDoc.fileSize ? `${(selectedDoc.fileSize / 1024).toFixed(1)}KB` : ''}
-                          </small>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                )}
 
-                  {/* Legacy Base64 Preview */}
-                  {!selectedDoc.storedFileName && selectedDoc.imageData && (
-                    <div className="mb-3">
-                      {selectedDoc.imageData.startsWith('data:image') ? (
-                        <img
-                          src={selectedDoc.imageData}
-                          alt={selectedDoc.name}
-                          className="img-fluid rounded border"
-                          style={{ maxHeight: '300px', width: '100%', objectFit: 'contain' }}
-                        />
-                      ) : (
-                        <div className="p-4 text-center border rounded">
-                          <span style={{ fontSize: '48px' }}>📄</span>
-                          <p className="mb-0">{selectedDoc.fileName}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Edit Mode */}
-                  {editingDoc ? (
-                    <div className="d-flex flex-column gap-3">
-                      <div>
-                        <label className="form-label small text-muted">Document Name</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          value={editingDoc.name}
-                          onChange={(e) => updateEditingField('name', e.target.value)}
-                        />
+                {/* Legacy Base64 Preview */}
+                {!selectedDoc.storedFileName && selectedDoc.imageData && (
+                  <div className="mb-3 text-center">
+                    {selectedDoc.imageData.startsWith('data:image') ? (
+                      <img
+                        src={selectedDoc.imageData}
+                        alt={selectedDoc.name}
+                        className="img-fluid rounded border"
+                        style={{ maxHeight: '300px', width: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <div className="p-4 text-center border rounded" style={{ background: 'var(--bg-secondary)' }}>
+                        <span style={{ fontSize: '48px' }}>📄</span>
+                        <p className="mb-0" style={{ color: 'var(--text-primary)' }}>{selectedDoc.fileName}</p>
                       </div>
-                      <div>
-                        <label className="form-label small text-muted">Type</label>
-                        <select
-                          className="form-select"
-                          value={editingDoc.type}
-                          onChange={(e) => updateEditingField('type', e.target.value)}
+                    )}
+                  </div>
+                )}
+
+                {/* Edit Mode */}
+                {editingDoc ? (
+                  <div className="d-flex flex-column gap-3">
+                    <div>
+                      <label className="form-label small" style={{ color: 'var(--text-muted)' }}>Document Name</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={editingDoc.name}
+                        onChange={(e) => updateEditingField('name', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label small" style={{ color: 'var(--text-muted)' }}>Type</label>
+                      <select
+                        className="form-select"
+                        value={editingDoc.type}
+                        onChange={(e) => updateEditingField('type', e.target.value)}
+                      >
+                        {DOCUMENT_TYPES.map(t => (
+                          <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label small" style={{ color: 'var(--text-muted)' }}>Related To</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g., Honda Accord 2022"
+                        value={editingDoc.relatedTo || ''}
+                        onChange={(e) => updateEditingField('relatedTo', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label small" style={{ color: 'var(--text-muted)' }}>Expiry Date</label>
+                      <input
+                        type="date"
+                        className="form-control"
+                        value={editingDoc.expiryDate || ''}
+                        onChange={(e) => updateEditingField('expiryDate', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label small" style={{ color: 'var(--text-muted)' }}>Description</label>
+                      <textarea
+                        className="form-control"
+                        rows="2"
+                        placeholder="Optional notes"
+                        value={editingDoc.description || ''}
+                        onChange={(e) => updateEditingField('description', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* View Mode */
+                  <div className="d-flex flex-column gap-2">
+                    <div className="d-flex justify-content-between p-2 rounded" style={{ background: 'var(--bg-secondary)' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Type:</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{getDocType(selectedDoc.type).icon} {getDocType(selectedDoc.type).name}</span>
+                    </div>
+                    {selectedDoc.relatedTo && (
+                      <div className="d-flex justify-content-between p-2 rounded" style={{ background: 'var(--bg-secondary)' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Related To:</span>
+                        <span style={{ color: 'var(--text-primary)' }}>{selectedDoc.relatedTo}</span>
+                      </div>
+                    )}
+                    {selectedDoc.expiryDate && (
+                      <div className="d-flex justify-content-between p-2 rounded" style={{ background: 'var(--bg-secondary)' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Expiry:</span>
+                        <span style={{ color: isExpired(selectedDoc.expiryDate) ? 'var(--danger-color)' : 'var(--text-primary)', fontWeight: isExpired(selectedDoc.expiryDate) ? 'bold' : 'normal' }}>
+                          {new Date(selectedDoc.expiryDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    {selectedDoc.description && (
+                      <div className="d-flex justify-content-between p-2 rounded" style={{ background: 'var(--bg-secondary)' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Notes:</span>
+                        <span style={{ color: 'var(--text-primary)' }}>{selectedDoc.description}</span>
+                      </div>
+                    )}
+                    {(selectedDoc.storedFileName || selectedDoc.originalFileName) && (
+                      <div className="d-flex justify-content-between p-2 rounded" style={{ background: 'var(--bg-secondary)' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>File:</span>
+                        <span style={{ color: 'var(--text-primary)' }}>{selectedDoc.originalFileName || selectedDoc.fileName}</span>
+                      </div>
+                    )}
+                    <div className="d-flex justify-content-between p-2 rounded" style={{ background: 'var(--bg-secondary)' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Added:</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{new Date(selectedDoc.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    {selectedDoc.updatedAt && (
+                      <div className="d-flex justify-content-between p-2 rounded" style={{ background: 'var(--bg-secondary)' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Updated:</span>
+                        <span style={{ color: 'var(--text-primary)' }}>{new Date(selectedDoc.updatedAt).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer border-top" style={{ borderColor: 'var(--border-color)' }}>
+                {editingDoc ? (
+                  <>
+                    <button className="btn btn-outline-secondary" onClick={cancelEditing}>
+                      Cancel
+                    </button>
+                    <button className="btn btn-danger" onClick={saveEditedDocument}>
+                      💾 Save Changes
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {selectedDoc.storedFileName && (
+                      <>
+                        <a
+                          href={getDocumentViewUrl(selectedDoc.storedFileName)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-outline-secondary"
                         >
-                          {DOCUMENT_TYPES.map(t => (
-                            <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="form-label small text-muted">Related To</label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="e.g., Honda Accord 2022"
-                          value={editingDoc.relatedTo || ''}
-                          onChange={(e) => updateEditingField('relatedTo', e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label small text-muted">Expiry Date</label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={editingDoc.expiryDate || ''}
-                          onChange={(e) => updateEditingField('expiryDate', e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label className="form-label small text-muted">Description</label>
-                        <textarea
-                          className="form-control"
-                          rows="2"
-                          placeholder="Optional notes"
-                          value={editingDoc.description || ''}
-                          onChange={(e) => updateEditingField('description', e.target.value)}
-                        />
-                      </div>
-                      <div className="d-flex gap-2">
-                        <button className="btn btn-danger flex-grow-1" onClick={saveEditedDocument}>
-                          💾 Save Changes
-                        </button>
-                        <button className="btn btn-outline-secondary" onClick={cancelEditing}>
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    /* View Mode */
-                    <>
-                      <div className="d-flex flex-column gap-2">
-                        <div className="d-flex justify-content-between">
-                          <span className="text-muted">Type:</span>
-                          <span>{getDocType(selectedDoc.type).icon} {getDocType(selectedDoc.type).name}</span>
-                        </div>
-                        {selectedDoc.relatedTo && (
-                          <div className="d-flex justify-content-between">
-                            <span className="text-muted">Related To:</span>
-                            <span>{selectedDoc.relatedTo}</span>
-                          </div>
-                        )}
-                        {selectedDoc.expiryDate && (
-                          <div className="d-flex justify-content-between">
-                            <span className="text-muted">Expiry:</span>
-                            <span className={isExpired(selectedDoc.expiryDate) ? 'text-danger' : ''}>
-                              {new Date(selectedDoc.expiryDate).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
-                        {selectedDoc.description && (
-                          <div className="d-flex justify-content-between">
-                            <span className="text-muted">Notes:</span>
-                            <span>{selectedDoc.description}</span>
-                          </div>
-                        )}
-                        {(selectedDoc.storedFileName || selectedDoc.originalFileName) && (
-                          <div className="d-flex justify-content-between">
-                            <span className="text-muted">File:</span>
-                            <span>{selectedDoc.originalFileName || selectedDoc.fileName}</span>
-                          </div>
-                        )}
-                        <div className="d-flex justify-content-between">
-                          <span className="text-muted">Added:</span>
-                          <span>{new Date(selectedDoc.createdAt).toLocaleDateString()}</span>
-                        </div>
-                        {selectedDoc.updatedAt && (
-                          <div className="d-flex justify-content-between">
-                            <span className="text-muted">Updated:</span>
-                            <span>{new Date(selectedDoc.updatedAt).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Download Buttons */}
-                      <div className="mt-3 d-flex gap-2">
-                        {selectedDoc.storedFileName && (
-                          <>
-                            <a
-                              href={getDocumentViewUrl(selectedDoc.storedFileName)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="btn btn-outline-secondary btn-sm flex-grow-1"
-                            >
-                              👁️ View
-                            </a>
-                            <a
-                              href={getDocumentDownloadUrl(selectedDoc.storedFileName)}
-                              download={selectedDoc.originalFileName || 'document'}
-                              className="btn btn-outline-danger btn-sm flex-grow-1"
-                            >
-                              📥 Download
-                            </a>
-                          </>
-                        )}
-                        {!selectedDoc.storedFileName && selectedDoc.imageData && (
-                          <a
-                            href={selectedDoc.imageData}
-                            download={selectedDoc.fileName || 'document'}
-                            className="btn btn-outline-danger btn-sm w-100"
-                          >
-                            📥 Download
-                          </a>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
+                          👁️ View
+                        </a>
+                        <a
+                          href={getDocumentDownloadUrl(selectedDoc.storedFileName)}
+                          download={selectedDoc.originalFileName || 'document'}
+                          className="btn btn-danger"
+                        >
+                          📥 Download
+                        </a>
+                      </>
+                    )}
+                    {!selectedDoc.storedFileName && selectedDoc.imageData && (
+                      <a
+                        href={selectedDoc.imageData}
+                        download={selectedDoc.fileName || 'document'}
+                        className="btn btn-danger"
+                      >
+                        📥 Download
+                      </a>
+                    )}
+                    <button
+                      className="btn btn-outline-secondary"
+                      onClick={() => { setSelectedDoc(null); setEditingDoc(null); }}
+                    >
+                      Close
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
