@@ -22,20 +22,82 @@ const AddMonthlyExpense = ({ onAdd }) => {
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
 
-  const handleScanComplete = (scanData) => {
-    if (scanData.amount) {
-      setAmount(scanData.amount.toString());
+  const handleScanComplete = async (scanData, processingMode = 'itemized') => {
+    if (!scanData.transactions || scanData.transactions.length === 0) {
+      alert('No transactions found in the scanned bill');
+      return;
     }
-    if (scanData.date) {
-      setDate(scanData.date);
+
+    setLoading(true);
+
+    try {
+      let transactionsToAdd = [];
+
+      if (processingMode === 'single') {
+        // Create a single transaction with the total amount
+        const totalAmount = scanData.totalAmount || scanData.transactions.reduce((sum, t) => sum + t.amount, 0);
+        const category = scanData.transactions[0]?.category || 'Groceries'; // Use first item's category or default to Groceries
+
+        transactionsToAdd = [{
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          amount: totalAmount,
+          category: category,
+          date: scanData.date,
+          description: scanData.merchant ? `${scanData.merchant} - Receipt Total` : 'Receipt Total',
+          currency: settings.currency,
+          type: 'EXPENSE',
+          createdAt: new Date().toISOString(),
+          merchant: scanData.merchant
+        }];
+      } else {
+        // Add all individual transactions
+        transactionsToAdd = scanData.transactions.map(transaction => ({
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          amount: transaction.amount,
+          category: transaction.category,
+          date: transaction.date,
+          description: transaction.description,
+          currency: transaction.currency,
+          type: 'EXPENSE',
+          createdAt: new Date().toISOString(),
+          merchant: transaction.merchant
+        }));
+      }
+
+      // Save to both localStorage keys (for compatibility)
+      const monthlyStored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      const txStored = JSON.parse(localStorage.getItem(TRANSACTIONS_KEY) || "[]");
+
+      // Add all transactions
+      monthlyStored.unshift(...transactionsToAdd);
+      txStored.unshift(...transactionsToAdd);
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(monthlyStored));
+      localStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(txStored));
+
+      console.log(`Added ${transactionsToAdd.length} transaction${transactionsToAdd.length !== 1 ? 's' : ''} from bill scan:`, transactionsToAdd);
+
+      // Try API call for each transaction (optional)
+      for (const transaction of transactionsToAdd) {
+        try {
+          await addExpense(transaction);
+        } catch (error) {
+          console.log('Backend not available for transaction:', transaction.id);
+        }
+      }
+
+      alert(`Successfully added ${transactionsToAdd.length} transaction${transactionsToAdd.length !== 1 ? 's' : ''} from the scanned bill!`);
+
+      // Notify parent and close scanner
+      if (onAdd) onAdd();
+      setShowScanner(false);
+
+    } catch (err) {
+      console.error('Failed to save scanned transactions:', err);
+      alert('Failed to save transactions. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    if (scanData.category && CATEGORY_OPTIONS.includes(scanData.category)) {
-      setCategory(scanData.category);
-    }
-    if (scanData.merchant) {
-      setDescription(scanData.merchant);
-    }
-    setShowScanner(false);
   };
 
   const handleSubmit = async (e) => {

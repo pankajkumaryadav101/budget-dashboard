@@ -6,7 +6,7 @@ export default function ThemeScheduler() {
 
   return (
     <div className="card">
-      <div className="card-header bg-danger text-white">
+      <div className="card-header" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
         <strong>🌓 Theme Settings</strong>
       </div>
       <div className="card-body">

@@ -1059,7 +1059,7 @@ export default function Dashboard() {
               </div>
 
               <div className="card mt-4">
-                <div className="card-header bg-danger text-white">
+                <div className="card-header" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
                   <strong>📊 App Statistics</strong>
                 </div>
                 <div className="card-body">
@@ -1087,7 +1087,7 @@ export default function Dashboard() {
               </div>
 
               <div className="card mt-4">
-                <div className="card-header bg-danger text-white">
+                <div className="card-header" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
                   <strong>ℹ️ About</strong>
                 </div>
                 <div className="card-body">

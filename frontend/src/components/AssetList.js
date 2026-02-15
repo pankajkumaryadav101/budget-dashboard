@@ -386,7 +386,7 @@ export default function AssetList({ onEdit, refreshTrigger }) {
           {/* Sample Assets Guide */}
           {!searchQuery && (
             <div className="card text-start mx-auto" style={{ maxWidth: '600px' }}>
-              <div className="card-header bg-danger text-white">
+              <div className="card-header" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
                 <strong>{t('sampleHeader')}</strong>
               </div>
               <div className="card-body">

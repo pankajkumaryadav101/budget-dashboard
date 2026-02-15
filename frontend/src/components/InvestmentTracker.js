@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useSettings } from '../contexts/SettingsContext';
 
 const INVESTMENTS_KEY = 'investments_v1';
@@ -36,6 +37,8 @@ export default function InvestmentTracker() {
     currentPrice: '',
     purchaseDate: ''
   });
+  const [marketData, setMarketData] = useState({ crypto: [], stocks: [] });
+  const [loadingMarket, setLoadingMarket] = useState(false);
 
   useEffect(() => {
     loadInvestments();
@@ -116,6 +119,37 @@ export default function InvestmentTracker() {
       setRefreshing(false);
     }, 1000);
   };
+
+  const fetchMarketData = async () => {
+    setLoadingMarket(true);
+    try {
+      // Fetch top cryptocurrencies
+      const cryptoRes = await axios.get('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1');
+      // Fetch top stocks using Alpha Vantage (free demo API)
+      const topStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX', 'BABA', 'ORCL'];
+      const stockPromises = topStocks.map(symbol =>
+        axios.get(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=demo`)
+      );
+      const stockResults = await Promise.all(stockPromises);
+      const stocks = stockResults.map((res, i) => {
+        const quote = res.data['Global Quote'] || {};
+        return {
+          symbol: topStocks[i],
+          price: parseFloat(quote['05. price']) || 0,
+          change: parseFloat(quote['09. change']) || 0
+        };
+      });
+      setMarketData({ crypto: cryptoRes.data, stocks });
+    } catch (error) {
+      console.error('Error fetching market data:', error);
+    } finally {
+      setLoadingMarket(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMarketData();
+  }, []);
 
   const getInvestmentType = (typeId) => {
     return INVESTMENT_TYPES.find(t => t.id === typeId) || INVESTMENT_TYPES[INVESTMENT_TYPES.length - 1];
@@ -380,8 +414,87 @@ export default function InvestmentTracker() {
         </div>
       )}
 
+      {/* Market Overview */}
+      <div className="mb-4">
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h5 className="mb-0">🌍 Market Overview</h5>
+          <button
+            className="btn btn-outline-danger btn-sm"
+            onClick={fetchMarketData}
+            disabled={loadingMarket}
+          >
+            {loadingMarket ? '⏳ Loading...' : '🔄 Refresh'}
+          </button>
+        </div>
+        <div className="row">
+          <div className="col-md-6">
+            <h6>Top Cryptocurrencies</h6>
+            {loadingMarket ? (
+              <div className="text-center py-3">
+                <div className="spinner-border spinner-border-sm text-danger" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Price</th>
+                      <th>24h %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {marketData.crypto.map(coin => (
+                      <tr key={coin.id}>
+                        <td>{coin.name} ({coin.symbol.toUpperCase()})</td>
+                        <td>${coin.current_price.toFixed(2)}</td>
+                        <td><span style={{ color: coin.price_change_percentage_24h > 0 ? '#00ff00' : coin.price_change_percentage_24h < 0 ? '#ff0000' : 'var(--text-primary) !important' }}>{coin.price_change_percentage_24h >= 0 ? '+' : ''}{coin.price_change_percentage_24h.toFixed(2)}%</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div className="col-md-6">
+            <h6>Top Stocks</h6>
+            {loadingMarket ? (
+              <div className="text-center py-3">
+                <div className="spinner-border spinner-border-sm text-danger" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th>Price</th>
+                      <th>Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {marketData.stocks.map(stock => (
+                      <tr key={stock.symbol}>
+                        <td>{stock.symbol}</td>
+                        <td>${stock.price.toFixed(2)}</td>
+                        <td><span style={{ color: stock.change > 0 ? '#00ff00' : stock.change < 0 ? '#ff0000' : 'var(--text-primary) !important' }}>{stock.change >= 0 ? '+' : ''}${stock.change.toFixed(2)}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+
       <small className="text-muted d-block mt-3">
-        💡 Note: Prices are simulated. In production, connect to a stock API for real-time data.
+        💡 Note: Cryptocurrency data from CoinGecko (free API). Stock data from Alpha Vantage (demo API with limits).
       </small>
     </div>
   );

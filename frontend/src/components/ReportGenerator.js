@@ -306,7 +306,7 @@ export default function ReportGenerator() {
       {/* Report Preview */}
       {reportData && (
         <div className="card">
-          <div className="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+          <div className="card-header d-flex justify-content-between align-items-center" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
             <strong>📄 {reportData.period} Report</strong>
             <button className="btn btn-light btn-sm" onClick={exportToPDF}>
               📥 Export PDF

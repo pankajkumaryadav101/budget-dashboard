@@ -211,7 +211,7 @@ export default function DataBackup({ onImportComplete }) {
 
   return (
     <div className="card">
-      <div className="card-header bg-danger text-white">
+      <div className="card-header" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
         <strong>💾 Data Backup & Restore</strong>
       </div>
       <div className="card-body">
