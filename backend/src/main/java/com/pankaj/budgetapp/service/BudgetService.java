@@ -117,4 +117,8 @@ public class BudgetService {
     public List<BudgetItem> getRecurringItems() {
         return budgetItemRepository.findByRecurringTrue();
     }
+
+    public List<BudgetItem> getAllItems() {
+        return budgetItemRepository.findAll();
+    }
 }

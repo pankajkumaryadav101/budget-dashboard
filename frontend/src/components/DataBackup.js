@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../contexts/SettingsContext';
+import SectionToggle from './SectionToggle';
 
 const STORAGE_KEYS = {
   transactions: 'transactions_v1',
@@ -210,87 +211,82 @@ export default function DataBackup({ onImportComplete }) {
   };
 
   return (
-    <div className="card">
-      <div className="card-header" style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-        <strong>💾 Data Backup & Restore</strong>
+    <SectionToggle title="Data Backup & Restore" icon="💾" defaultOpen={false}>
+      {/* Message */}
+      {message && (
+        <div className={`alert alert-${message.type === 'success' ? 'success' : 'danger'} py-2`}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Data Selection */}
+      <div className="mb-4">
+        <label className="form-label small text-muted">Select data to export/import:</label>
+        <div className="d-flex flex-wrap gap-2">
+          {Object.keys(STORAGE_KEYS).map(key => (
+            <button
+              key={key}
+              className={`btn btn-sm ${selectedKeys.includes(key) ? 'btn-danger' : 'btn-outline-secondary'}`}
+              onClick={() => toggleKey(key)}
+            >
+              {selectedKeys.includes(key) ? '✓ ' : ''}{key}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="card-body">
-        {/* Message */}
-        {message && (
-          <div className={`alert alert-${message.type === 'success' ? 'success' : 'danger'} py-2`}>
-            {message.text}
-          </div>
-        )}
 
-        {/* Data Selection */}
-        <div className="mb-4">
-          <label className="form-label small text-muted">Select data to export/import:</label>
-          <div className="d-flex flex-wrap gap-2">
-            {Object.keys(STORAGE_KEYS).map(key => (
-              <button
-                key={key}
-                className={`btn btn-sm ${selectedKeys.includes(key) ? 'btn-danger' : 'btn-outline-secondary'}`}
-                onClick={() => toggleKey(key)}
-              >
-                {selectedKeys.includes(key) ? '✓ ' : ''}{key}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Export Section */}
-        <div className="mb-4 p-3 rounded" style={{ background: 'var(--bg-secondary)' }}>
-          <h6 className="mb-3">📤 Export Data</h6>
-          <div className="d-flex gap-2">
-            <button
-              className="btn btn-outline-danger"
-              onClick={() => exportData('json')}
-              disabled={exporting || selectedKeys.length === 0}
-            >
-              {exporting ? '⏳ Exporting...' : '💾 Export as JSON'}
-            </button>
-            <button
-              className="btn btn-outline-secondary"
-              onClick={() => exportData('csv')}
-              disabled={exporting}
-            >
-              📊 Export Transactions as CSV
-            </button>
-          </div>
-          <small className="text-muted d-block mt-2">
-            JSON includes all selected data. CSV exports only transactions.
-          </small>
-        </div>
-
-        {/* Import Section */}
-        <div className="mb-4 p-3 rounded" style={{ background: 'var(--bg-secondary)' }}>
-          <h6 className="mb-3">📥 Import Data</h6>
-          <input
-            type="file"
-            className="form-control"
-            accept=".json,.csv"
-            onChange={importData}
-            disabled={importing}
-          />
-          <small className="text-muted d-block mt-2">
-            Supports JSON backup files or CSV transaction lists. Existing data will be merged (not replaced).
-          </small>
-        </div>
-
-        {/* Danger Zone */}
-        <div className="p-3 rounded border border-danger">
-          <h6 className="text-danger mb-3">⚠️ Danger Zone</h6>
+      {/* Export Section */}
+      <div className="mb-4 p-3 rounded" style={{ background: 'var(--bg-secondary)' }}>
+        <h6 className="mb-3">📤 Export Data</h6>
+        <div className="d-flex gap-2">
           <button
-            className="btn btn-outline-danger btn-sm"
-            onClick={clearAllData}
+            className="btn btn-outline-danger"
+            onClick={() => exportData('json')}
+            disabled={exporting || selectedKeys.length === 0}
           >
-            🗑️ Clear All Data
+            {exporting ? '⏳ Exporting...' : '💾 Export as JSON'}
           </button>
-          <small className="text-muted d-block mt-2">
-            This will permanently delete all your transactions, assets, budgets, and settings.
-          </small>
+          <button
+            className="btn btn-outline-secondary"
+            onClick={() => exportData('csv')}
+            disabled={exporting}
+          >
+            📊 Export Transactions as CSV
+          </button>
         </div>
+        <small className="text-muted d-block mt-2">
+          JSON includes all selected data. CSV exports only transactions.
+        </small>
       </div>
-    </div>
+
+      {/* Import Section */}
+      <div className="mb-4 p-3 rounded" style={{ background: 'var(--bg-secondary)' }}>
+        <h6 className="mb-3">📥 Import Data</h6>
+        <input
+          type="file"
+          className="form-control"
+          accept=".json,.csv"
+          onChange={importData}
+          disabled={importing}
+        />
+        <small className="text-muted d-block mt-2">
+          Supports JSON backup files or CSV transaction lists. Existing data will be merged (not replaced).
+        </small>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="p-3 rounded border border-danger">
+        <h6 className="text-danger mb-3">⚠️ Danger Zone</h6>
+        <button
+          className="btn btn-outline-danger btn-sm"
+          onClick={clearAllData}
+        >
+          🗑️ Clear All Data
+        </button>
+        <small className="text-muted d-block mt-2">
+          This will permanently delete all your transactions, assets, budgets, and settings.
+        </small>
+      </div>
+    </SectionToggle>
   );
 }

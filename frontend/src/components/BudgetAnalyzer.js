@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
+import BudgetRecommendations from './BudgetRecommendations';
 
 const EXPENSES_KEY = 'monthly_expenses_v1';
 const TRANSACTIONS_KEY = 'transactions_v1';
@@ -407,6 +408,8 @@ export default function BudgetAnalyzer() {
           ? '✅ Great! You are within your budget.'
           : '⚠️ You have exceeded your budget this month.'}
       </div>
+      {/* Budget Recommendations */}
+      <BudgetRecommendations />
     </div>
   );
 }

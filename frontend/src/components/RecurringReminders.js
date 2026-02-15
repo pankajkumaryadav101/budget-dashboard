@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useSettings } from '../contexts/SettingsContext';
+import SectionToggle from './SectionToggle';
 
 const STORAGE_KEY = 'recurring_reminders_v1';
 const TRANSACTIONS_KEY = 'transactions_v1';
@@ -202,49 +203,51 @@ export default function RecurringReminders({ readOnly = false, limit = null, onU
     }
 
     return (
-      <div className="d-flex flex-column gap-2">
-        {displayReminders.map(reminder => {
-          const displayAmount = getDisplayAmount(reminder);
+      <SectionToggle title="Monthly Recurring Reminders" icon="🔔" defaultOpen={false}>
+        <div className="d-flex flex-column gap-2">
+          {displayReminders.map(reminder => {
+            const displayAmount = getDisplayAmount(reminder);
 
-          return (
-            <div
-              key={reminder.id}
-              className={`d-flex justify-content-between align-items-center p-2 rounded border ${
-                isPastDue(reminder) ? 'border-danger bg-danger bg-opacity-10' :
-                isPaidThisMonth(reminder) ? 'border-success bg-success bg-opacity-10' : ''
-              }`}
-            >
-              <div>
-                <span className="d-block">{reminder.name}</span>
-                <small className="text-muted">
-                  Due: {reminder.dueDay}th
-                  {isPastDue(reminder) && <span className="text-danger ms-1">(Overdue!)</span>}
-                </small>
+            return (
+              <div
+                key={reminder.id}
+                className={`d-flex justify-content-between align-items-center p-2 rounded border ${
+                  isPastDue(reminder) ? 'border-danger bg-danger bg-opacity-10' :
+                  isPaidThisMonth(reminder) ? 'border-success bg-success bg-opacity-10' : ''
+                }`}
+              >
+                <div>
+                  <span className="d-block">{reminder.name}</span>
+                  <small className="text-muted">
+                    Due: {reminder.dueDay}th
+                    {isPastDue(reminder) && <span className="text-danger ms-1">(Overdue!)</span>}
+                  </small>
+                </div>
+                <div className="text-end d-flex align-items-center gap-2">
+                  <span className="fw-bold text-danger">{settings.currencySymbol}{displayAmount.toLocaleString()}</span>
+                  {isPaidThisMonth(reminder) ? (
+                    <button
+                      className="btn btn-success btn-sm py-0 px-2"
+                      onClick={() => markUnpaid(reminder.id)}
+                      title="Click to undo"
+                    >
+                      ✓ Paid
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-outline-success btn-sm py-0 px-2"
+                      onClick={() => markPaid(reminder.id)}
+                      title="Mark as paid and add transaction"
+                    >
+                      Pay
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="text-end d-flex align-items-center gap-2">
-                <span className="fw-bold text-danger">{settings.currencySymbol}{displayAmount.toLocaleString()}</span>
-                {isPaidThisMonth(reminder) ? (
-                  <button
-                    className="btn btn-success btn-sm py-0 px-2"
-                    onClick={() => markUnpaid(reminder.id)}
-                    title="Click to undo"
-                  >
-                    ✓ Paid
-                  </button>
-                ) : (
-                  <button
-                    className="btn btn-outline-success btn-sm py-0 px-2"
-                    onClick={() => markPaid(reminder.id)}
-                    title="Mark as paid and add transaction"
-                  >
-                    Pay
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </SectionToggle>
     );
   }
 
@@ -259,169 +262,171 @@ export default function RecurringReminders({ readOnly = false, limit = null, onU
 
   // Full editable view
   return (
-    <div>
-      {/* Summary Cards */}
-      <div className="row g-2 mb-4">
-        <div className="col-4">
-          <div className="p-2 rounded text-center" style={{ background: 'var(--bg-secondary)' }}>
-            <small className="text-muted d-block">Total Monthly</small>
-            <strong className="text-danger">{settings.currencySymbol}{totalMonthly.toLocaleString()}</strong>
+    <SectionToggle title="Monthly Recurring Reminders" icon="🔔" defaultOpen={false}>
+      <div>
+        {/* Summary Cards */}
+        <div className="row g-2 mb-4">
+          <div className="col-4">
+            <div className="p-2 rounded text-center" style={{ background: 'var(--bg-secondary)' }}>
+              <small className="text-muted d-block">Total Monthly</small>
+              <strong className="text-danger">{settings.currencySymbol}{totalMonthly.toLocaleString()}</strong>
+            </div>
+          </div>
+          <div className="col-4">
+            <div className="p-2 rounded text-center bg-success bg-opacity-10">
+              <small className="text-muted d-block">Paid ({paidThisMonth.length})</small>
+              <strong className="text-success">{settings.currencySymbol}{totalPaid.toLocaleString()}</strong>
+            </div>
+          </div>
+          <div className="col-4">
+            <div className="p-2 rounded text-center bg-danger bg-opacity-10">
+              <small className="text-muted d-block">Pending ({unpaidThisMonth.length})</small>
+              <strong className="text-danger">{settings.currencySymbol}{totalUnpaid.toLocaleString()}</strong>
+            </div>
           </div>
         </div>
-        <div className="col-4">
-          <div className="p-2 rounded text-center bg-success bg-opacity-10">
-            <small className="text-muted d-block">Paid ({paidThisMonth.length})</small>
-            <strong className="text-success">{settings.currencySymbol}{totalPaid.toLocaleString()}</strong>
-          </div>
-        </div>
-        <div className="col-4">
-          <div className="p-2 rounded text-center bg-danger bg-opacity-10">
-            <small className="text-muted d-block">Pending ({unpaidThisMonth.length})</small>
-            <strong className="text-danger">{settings.currencySymbol}{totalUnpaid.toLocaleString()}</strong>
-          </div>
-        </div>
-      </div>
 
-      {/* Overdue Alert */}
-      {overdueItems.length > 0 && (
-        <div className="alert alert-danger py-2 mb-3">
-          ⚠️ <strong>{overdueItems.length}</strong> payment{overdueItems.length > 1 ? 's are' : ' is'} overdue!
-        </div>
-      )}
+        {/* Overdue Alert */}
+        {overdueItems.length > 0 && (
+          <div className="alert alert-danger py-2 mb-3">
+            ⚠️ <strong>{overdueItems.length}</strong> payment{overdueItems.length > 1 ? 's are' : ' is'} overdue!
+          </div>
+        )}
 
-      {/* Active Reminders */}
-      <h6 className="text-muted mb-3">Active ({activeReminders.length})</h6>
-      <div className="d-flex flex-column gap-2 mb-4">
-        {activeReminders.sort((a, b) => a.dueDay - b.dueDay).map(reminder => (
-          <div
-            key={reminder.id}
-            className={`p-3 rounded border ${
-              isPastDue(reminder) ? 'border-danger bg-danger bg-opacity-10' :
-              isPaidThisMonth(reminder) ? 'border-success bg-success bg-opacity-10' : ''
-            }`}
-          >
-            <div className="d-flex justify-content-between align-items-start mb-2">
-              <div>
-                <strong>{reminder.name}</strong>
-                <span className="badge bg-secondary ms-2">{reminder.category}</span>
-                {isPastDue(reminder) && <span className="badge bg-danger ms-1">Overdue!</span>}
+        {/* Active Reminders */}
+        <h6 className="text-muted mb-3">Active ({activeReminders.length})</h6>
+        <div className="d-flex flex-column gap-2 mb-4">
+          {activeReminders.sort((a, b) => a.dueDay - b.dueDay).map(reminder => (
+            <div
+              key={reminder.id}
+              className={`p-3 rounded border ${
+                isPastDue(reminder) ? 'border-danger bg-danger bg-opacity-10' :
+                isPaidThisMonth(reminder) ? 'border-success bg-success bg-opacity-10' : ''
+              }`}
+            >
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <strong>{reminder.name}</strong>
+                  <span className="badge bg-secondary ms-2">{reminder.category}</span>
+                  {isPastDue(reminder) && <span className="badge bg-danger ms-1">Overdue!</span>}
+                </div>
+                <div>
+                  {isPaidThisMonth(reminder) ? (
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() => markUnpaid(reminder.id)}
+                      title="Click to undo payment"
+                    >
+                      ✓ Paid
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-success btn-sm"
+                      onClick={() => markPaid(reminder.id)}
+                    >
+                      💰 Mark Paid
+                    </button>
+                  )}
+                </div>
               </div>
-              <div>
-                {isPaidThisMonth(reminder) ? (
-                  <button
-                    className="btn btn-success btn-sm"
-                    onClick={() => markUnpaid(reminder.id)}
-                    title="Click to undo payment"
+              <div className="row g-2">
+                <div className="col-6">
+                  <label className="form-label small">Amount ({settings.currencySymbol})</label>
+                  <input
+                    type="number"
+                    className="form-control form-control-sm"
+                    value={reminder.amount || ''}
+                    onChange={(e) => updateAmount(reminder.id, e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="col-4">
+                  <label className="form-label small">Due Day</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={reminder.dueDay}
+                    onChange={(e) => updateDueDay(reminder.id, e.target.value)}
                   >
-                    ✓ Paid
-                  </button>
-                ) : (
+                    {[...Array(28)].map((_, i) => (
+                      <option key={i + 1} value={i + 1}>{i + 1}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-2 d-flex align-items-end">
                   <button
-                    className="btn btn-success btn-sm"
-                    onClick={() => markPaid(reminder.id)}
+                    className="btn btn-outline-danger btn-sm w-100"
+                    onClick={() => toggleActive(reminder.id)}
+                    title="Deactivate"
                   >
-                    💰 Mark Paid
+                    ✕
                   </button>
-                )}
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+
+        {/* Inactive/Available Reminders */}
+        <h6 className="text-muted mb-3">Available to Add</h6>
+        <div className="d-flex flex-wrap gap-2 mb-4">
+          {reminders.filter(r => !r.active && !r.custom).map(reminder => (
+            <button
+              key={reminder.id}
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => toggleActive(reminder.id)}
+            >
+              + {reminder.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Add Custom */}
+        <div className="border-top pt-3">
+          {!showAdd ? (
+            <button className="btn btn-outline-danger btn-sm" onClick={() => setShowAdd(true)}>
+              + Add Custom Expense
+            </button>
+          ) : (
             <div className="row g-2">
-              <div className="col-6">
-                <label className="form-label small">Amount ({settings.currencySymbol})</label>
+              <div className="col-md-4">
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Name"
+                  value={newReminder.name}
+                  onChange={(e) => setNewReminder({ ...newReminder, name: e.target.value })}
+                />
+              </div>
+              <div className="col-md-3">
                 <input
                   type="number"
                   className="form-control form-control-sm"
-                  value={reminder.amount || ''}
-                  onChange={(e) => updateAmount(reminder.id, e.target.value)}
-                  placeholder="0"
+                  placeholder="Amount"
+                  value={newReminder.amount}
+                  onChange={(e) => setNewReminder({ ...newReminder, amount: e.target.value })}
                 />
               </div>
-              <div className="col-4">
-                <label className="form-label small">Due Day</label>
+              <div className="col-md-2">
                 <select
                   className="form-select form-select-sm"
-                  value={reminder.dueDay}
-                  onChange={(e) => updateDueDay(reminder.id, e.target.value)}
+                  value={newReminder.dueDay}
+                  onChange={(e) => setNewReminder({ ...newReminder, dueDay: parseInt(e.target.value) })}
                 >
                   {[...Array(28)].map((_, i) => (
                     <option key={i + 1} value={i + 1}>{i + 1}</option>
                   ))}
                 </select>
               </div>
-              <div className="col-2 d-flex align-items-end">
-                <button
-                  className="btn btn-outline-danger btn-sm w-100"
-                  onClick={() => toggleActive(reminder.id)}
-                  title="Deactivate"
-                >
-                  ✕
-                </button>
+              <div className="col-md-3">
+                <div className="btn-group w-100">
+                  <button className="btn btn-danger btn-sm" onClick={addCustomReminder}>Add</button>
+                  <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowAdd(false)}>Cancel</button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          )}
+        </div>
       </div>
-
-      {/* Inactive/Available Reminders */}
-      <h6 className="text-muted mb-3">Available to Add</h6>
-      <div className="d-flex flex-wrap gap-2 mb-4">
-        {reminders.filter(r => !r.active && !r.custom).map(reminder => (
-          <button
-            key={reminder.id}
-            className="btn btn-outline-secondary btn-sm"
-            onClick={() => toggleActive(reminder.id)}
-          >
-            + {reminder.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Add Custom */}
-      <div className="border-top pt-3">
-        {!showAdd ? (
-          <button className="btn btn-outline-danger btn-sm" onClick={() => setShowAdd(true)}>
-            + Add Custom Expense
-          </button>
-        ) : (
-          <div className="row g-2">
-            <div className="col-md-4">
-              <input
-                type="text"
-                className="form-control form-control-sm"
-                placeholder="Name"
-                value={newReminder.name}
-                onChange={(e) => setNewReminder({ ...newReminder, name: e.target.value })}
-              />
-            </div>
-            <div className="col-md-3">
-              <input
-                type="number"
-                className="form-control form-control-sm"
-                placeholder="Amount"
-                value={newReminder.amount}
-                onChange={(e) => setNewReminder({ ...newReminder, amount: e.target.value })}
-              />
-            </div>
-            <div className="col-md-2">
-              <select
-                className="form-select form-select-sm"
-                value={newReminder.dueDay}
-                onChange={(e) => setNewReminder({ ...newReminder, dueDay: parseInt(e.target.value) })}
-              >
-                {[...Array(28)].map((_, i) => (
-                  <option key={i + 1} value={i + 1}>{i + 1}</option>
-                ))}
-              </select>
-            </div>
-            <div className="col-md-3">
-              <div className="btn-group w-100">
-                <button className="btn btn-danger btn-sm" onClick={addCustomReminder}>Add</button>
-                <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowAdd(false)}>Cancel</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    </SectionToggle>
   );
 }

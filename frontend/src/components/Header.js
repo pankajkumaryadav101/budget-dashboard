@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useSettings, COUNTRY_CONFIGS } from "../contexts/SettingsContext";
 import { syncFull, checkBackendHealth } from "../api/api";
 import { downloadBackup, uploadAndRestore, autoSaveBackup, getAutoBackupInfo } from "../utils/dataBackup";
+import logo from '../assets/pky-logo.png';
 
 export default function Header() {
   const { t } = useTranslation();
@@ -158,6 +159,7 @@ export default function Header() {
     <nav className="navbar navbar-expand sticky-top border-bottom" style={{ background: 'var(--bg-primary)' }}>
       <div className="container-fluid">
         <span className="navbar-brand mb-0 h1 text-danger fw-bold">
+          <img src={logo} alt="PKY Budget App Logo" style={{ height: 40, width: 40, borderRadius: 8, marginRight: 8 }} />
           💰 {t("title")}
         </span>
         <div className="d-flex align-items-center gap-2">
